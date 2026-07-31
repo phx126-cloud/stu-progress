@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求职辅导 · 学员进度管理</title>
+<style>
+:root{
+  --primary:#4f46e5; --primary-light:#eef2ff; --primary-dark:#4338ca;
+  --bg:#f6f7fb; --card:#ffffff; --border:#e5e7eb; --text:#1f2937; --text2:#6b7280;
+  --green:#059669; --green-bg:#ecfdf5; --amber:#d97706; --amber-bg:#fffbeb;
+  --red:#dc2626; --red-bg:#fef2f2; --blue:#2563eb; --blue-bg:#eff6ff;
+  --purple:#7c3aed; --purple-bg:#f5f3ff; --gray-bg:#f3f4f6;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 10px 30px rgba(0,0,0,.12);
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+body{background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+button{cursor:pointer;font-size:14px}
+input,select,textarea{font-size:14px;color:var(--text)}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ===== 布局 ===== */
+.app{display:flex;min-height:100vh}
+.sidebar{width:220px;background:#fff;border-right:1px solid var(--border);padding:20px 12px;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;z-index:10}
+.logo{display:flex;align-items:center;gap:10px;padding:6px 12px 22px}
+.logo-icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0}
+.logo-text{font-weight:700;font-size:15px;line-height:1.3}
+.logo-text small{display:block;font-weight:400;color:var(--text2);font-size:11px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--text2);margin-bottom:4px;border:none;background:none;width:100%;text-align:left;font-size:14px}
+.nav-item:hover{background:var(--gray-bg);color:var(--text)}
+.nav-item.active{background:var(--primary-light);color:var(--primary);font-weight:600}
+.nav-item .ico{width:20px;text-align:center}
+.sidebar-footer{margin-top:auto;padding:12px;font-size:12px;color:var(--text2)}
+.sidebar-footer button{display:block;width:100%;margin-bottom:8px;padding:8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text2);font-size:12px}
+.sidebar-footer button:hover{border-color:var(--primary);color:var(--primary)}
+.main{flex:1;margin-left:220px;padding:24px 28px;max-width:1400px}
+
+.page-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:22px;font-weight:700}
+.page-sub{color:var(--text2);font-size:13px;margin-top:4px}
+
+/* ===== 通用组件 ===== */
+.btn{padding:9px 16px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--text);font-weight:500;transition:.15s}
+.btn:hover{border-color:#c7cbd4;background:#fafafa}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn-danger{color:var(--red);border-color:#fecaca}
+.btn-danger:hover{background:var(--red-bg)}
+.btn-sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
+.btn-ghost{border:none;background:none;color:var(--primary);padding:5px 8px;font-size:13px}
+.btn-ghost:hover{background:var(--primary-light);border-radius:6px}
+.btn-ghost.danger{color:var(--red)}
+.btn-ghost.danger:hover{background:var(--red-bg)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-box{position:relative}
+.search-box input{padding:9px 12px 9px 34px;border:1px solid var(--border);border-radius:9px;width:240px;background:#fff;outline:none}
+.search-box input:focus{border-color:var(--primary)}
+.search-box::before{content:"🔍";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;opacity:.55}
+select.filter{padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;outline:none}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 16px;font-size:12px;color:var(--text2);font-weight:600;border-bottom:1px solid var(--border);background:#fafbfc;white-space:nowrap}
+th:first-child{border-top-left-radius:var(--radius)}
+th:last-child{border-top-right-radius:var(--radius)}
+td{padding:13px 16px;border-bottom:1px solid #f0f1f4;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafbff}
+.empty{text-align:center;padding:48px 20px;color:var(--text2)}
+.empty .big{font-size:36px;margin-bottom:10px}
+
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
+.tag-gray{background:var(--gray-bg);color:var(--text2)}
+.tag-blue{background:var(--blue-bg);color:var(--blue)}
+.tag-green{background:var(--green-bg);color:var(--green)}
+.tag-amber{background:var(--amber-bg);color:var(--amber)}
+.tag-red{background:var(--red-bg);color:var(--red)}
+.tag-purple{background:var(--purple-bg);color:var(--purple)}
+.tag-indigo{background:var(--primary-light);color:var(--primary)}
+
+.avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;flex-shrink:0}
+
+/* ===== 仪表盘 ===== */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+.stat-card .num{font-size:28px;font-weight:700;margin:6px 0 2px}
+.stat-card .lbl{color:var(--text2);font-size:13px}
+.stat-card .ico{font-size:18px}
+.dash-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}
+@media(max-width:1000px){.dash-grid{grid-template-columns:1fr}}
+.panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.panel-head{padding:16px 18px;border-bottom:1px solid #f0f1f4;font-weight:600;font-size:15px}
+.panel-body{padding:16px 18px}
+.funnel-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.funnel-label{width:58px;font-size:13px;color:var(--text2);flex-shrink:0}
+.funnel-bar-wrap{flex:1;background:var(--gray-bg);border-radius:6px;height:22px;overflow:hidden}
+.funnel-bar{height:100%;border-radius:6px;transition:width .5s;min-width:2px}
+.funnel-num{width:32px;text-align:right;font-weight:600;font-size:13px}
+.activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f5f6f8;font-size:13px;align-items:flex-start}
+.activity-item:last-child{border-bottom:none}
+.activity-time{color:var(--text2);font-size:12px;white-space:nowrap;padding-top:2px}
+
+/* ===== 看板 ===== */
+.kanban{display:flex;gap:14px;overflow-x:auto;padding-bottom:16px;align-items:flex-start}
+.kb-col{min-width:230px;width:230px;flex-shrink:0;background:#eef0f5;border-radius:var(--radius);padding:10px}
+.kb-col-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 10px;font-weight:600;font-size:13.5px}
+.kb-count{background:#fff;border-radius:99px;padding:1px 8px;font-size:12px;color:var(--text2);font-weight:500}
+.kb-cards{min-height:60px;display:flex;flex-direction:column;gap:8px}
+.kb-col.drag-over .kb-cards{outline:2px dashed var(--primary);outline-offset:2px;border-radius:8px}
+.kb-card{background:#fff;border-radius:10px;padding:12px;box-shadow:var(--shadow);cursor:grab;border:1px solid transparent;transition:.15s}
+.kb-card:hover{border-color:var(--primary);box-shadow:0 4px 12px rgba(79,70,229,.12)}
+.kb-card.dragging{opacity:.45}
+.kb-card .stu{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.kb-card .job{color:var(--text2);font-size:12.5px;margin-bottom:8px;line-height:1.45}
+.kb-card .meta{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--text2)}
+.kb-card .next{margin-top:7px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;padding:4px 8px;border-radius:6px;line-height:1.4}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* ===== 弹窗 ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow-y:auto}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;box-shadow:var(--shadow-lg);animation:pop .18s ease}
+@keyframes pop{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-head{padding:18px 22px;border-bottom:1px solid #f0f1f4;display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-size:16px}
+.modal-close{border:none;background:none;font-size:20px;color:var(--text2);line-height:1}
+.modal-body{padding:20px 22px;max-height:64vh;overflow-y:auto}
+.modal-foot{padding:14px 22px;border-top:1px solid #f0f1f4;display:flex;justify-content:flex-end;gap:10px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full{grid-column:1/-1}
+.fld label{display:block;font-size:12.5px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.fld input,.fld select,.fld textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--primary)}
+.fld textarea{resize:vertical;min-height:66px}
+
+/* ===== 详情抽屉 ===== */
+.drawer-mask{position:fixed;inset:0;background:rgba(17,24,39,.35);z-index:90;display:none}
+.drawer-mask.show{display:block}
+.drawer{position:fixed;top:0;right:-620px;width:600px;max-width:94vw;height:100vh;background:#fff;z-index:95;box-shadow:var(--shadow-lg);transition:right .25s ease;display:flex;flex-direction:column}
+.drawer.show{right:0}
+.drawer-head{padding:20px 24px;border-bottom:1px solid #f0f1f4;display:flex;justify-content:space-between;align-items:center}
+.drawer-body{flex:1;overflow-y:auto;padding:20px 24px}
+.sec-title{font-size:13px;font-weight:700;color:var(--text2);margin:20px 0 10px;text-transform:uppercase;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center}
+.sec-title:first-child{margin-top:0}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;font-size:13.5px}
+.info-grid .k{color:var(--text2);font-size:12px;margin-bottom:2px}
+.pf-item,.app-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;gap:10px}
+.pf-item .t{font-weight:500;font-size:13.5px}
+.pf-item .u{font-size:12px;color:var(--text2);word-break:break-all}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#111827;color:#fff;padding:10px 20px;border-radius:99px;font-size:13.5px;z-index:200;opacity:0;transition:.25s;box-shadow:var(--shadow-lg)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+@media(max-width:820px){
+  .sidebar{width:64px;padding:16px 8px}
+  .logo-text,.nav-item span.txt,.sidebar-footer{display:none}
+  .main{margin-left:64px;padding:16px}
+  .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- 侧边栏 -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🎯</div>
+      <div class="logo-text">求职辅导工作台<small>学员进度管理系统</small></div>
+    </div>
+    <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span><span class="txt">仪表盘</span></button>
+    <button class="nav-item" data-view="students"><span class="ico">🧑‍🎓</span><span class="txt">学员管理</span></button>
+    <button class="nav-item" data-view="jobs"><span class="ico">💼</span><span class="txt">职位库</span></button>
+    <button class="nav-item" data-view="pipeline"><span class="ico">🚀</span><span class="txt">投递进度</span></button>
+    <div class="sidebar-footer">
+      <div id="syncStatus" style="margin-bottom:10px;line-height:1.6">⚪️ 本地模式</div>
+      <button id="migrateBtn" style="display:none" onclick="migrateLocal()">☁️ 迁移本地数据到飞书</button>
+      <button onclick="exportData()">⬇️ 导出数据备份</button>
+      <button onclick="document.getElementById('importFile').click()">⬆️ 导入数据</button>
+      <button onclick="doLogout()">🚪 退出登录</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
+      <span id="storageHint">数据保存在本机浏览器中</span>
+    </div>
+  </aside>
+
+  <!-- 主区域 -->
+  <main class="main">
+    <!-- 仪表盘 -->
+    <section id="view-dashboard">
+      <div class="page-head">
+        <div><div class="page-title">仪表盘</div><div class="page-sub" id="dashDate"></div></div>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="dash-grid">
+        <div class="panel">
+          <div class="panel-head">📈 投递漏斗</div>
+          <div class="panel-body" id="funnelBody"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">🕒 最近动态</div>
+          <div class="panel-body" id="activityBody"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 学员管理 -->
+    <section id="view-students" style="display:none">
+      <div class="page-head">
+        <div><div class="page-title">学员管理</div><div class="page-sub">学员信息、简历与作品集</div></div>
+        <button class="btn btn-primary" onclick="openStudentModal()">＋ 新增学员</button>
+      </div>
+      <div class="toolbar">
+        <div class="search-box"><input id="stuSearch" placeholder="搜索姓名 / 学校 / 目标岗位" oninput="renderStudents()"></div>
+        <select class="filter" id="stuStageFilter" onchange="renderStudents()">
+          <option value="">全部阶段</option>
+          <option>咨询中</option><option>辅导中</option><option>求职中</option><option>已上岸</option><option>暂停</option>
+        </select>
+        <select class="filter" id="stuResumeFilter" onchange="renderStudents()">
+          <option value="">全部简历状态</option>
+          <option>待优化</option><option>优化中</option><option>已定稿</option>
+        </select>
+      </div>
+      <div class="card" style="overflow-x:auto"><div id="studentTable"></div></div>
+    </section>
+
+    <!-- 职位库 -->
+    <section id="view-jobs" style="display:none">
+      <div class="page-head">
+        <div><div class="page-title">职位库</div><div class="page-sub">收集与维护可推荐的职位</div></div>
+        <button class="btn btn-primary" onclick="openJobModal()">＋ 新增职位</button>
+      </div>
+      <div class="toolbar">
+        <div class="search-box"><input id="jobSearch" placeholder="搜索公司 / 职位 / 城市" oninput="renderJobs()"></div>
+        <select class="filter" id="jobStatusFilter" onchange="renderJobs()">
+          <option value="">全部状态</option><option>招聘中</option><option>已关闭</option>
+        </select>
+      </div>
+      <div class="card" style="overflow-x:auto"><div id="jobTable"></div></div>
+    </section>
+
+    <!-- 投递进度 -->
+    <section id="view-pipeline" style="display:none">
+      <div class="page-head">
+        <div><div class="page-title">投递进度</div><div class="page-sub">拖拽卡片即可更新阶段</div></div>
+        <button class="btn btn-primary" onclick="openAppModal()">＋ 新增投递</button>
+      </div>
+      <div class="toolbar">
+        <select class="filter" id="pipeStudentFilter" onchange="renderPipeline()"><option value="">全部学员</option></select>
+      </div>
+      <div class="kanban" id="kanban"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 学员弹窗 -->
+<div class="modal-mask" id="studentModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="studentModalTitle">新增学员</h3><button class="modal-close" onclick="closeModal('studentModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld"><label>姓名 *</label><input id="f_name"></div>
+        <div class="fld"><label>联系方式（手机/微信）</label><input id="f_contact"></div>
+        <div class="fld"><label>学校</label><input id="f_school"></div>
+        <div class="fld"><label>专业</label><input id="f_major"></div>
+        <div class="fld"><label>目标岗位</label><input id="f_target" placeholder="如：产品经理"></div>
+        <div class="fld"><label>辅导阶段</label><select id="f_stage"><option>咨询中</option><option>辅导中</option><option>求职中</option><option>已上岸</option><option>暂停</option></select></div>
+        <div class="fld"><label>简历状态</label><select id="f_resumeStatus"><option>待优化</option><option>优化中</option><option>已定稿</option></select></div>
+        <div class="fld"><label>简历链接（网盘/在线文档）</label><input id="f_resumeUrl" placeholder="https://..."></div>
+        <div class="fld full"><label>备注</label><textarea id="f_notes" placeholder="辅导重点、性格特点、期望薪资等"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('studentModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveStudent()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 职位弹窗 -->
+<div class="modal-mask" id="jobModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="jobModalTitle">新增职位</h3><button class="modal-close" onclick="closeModal('jobModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld"><label>公司 *</label><input id="j_company"></div>
+        <div class="fld"><label>职位名称 *</label><input id="j_title"></div>
+        <div class="fld"><label>城市</label><input id="j_city"></div>
+        <div class="fld"><label>薪资范围</label><input id="j_salary" placeholder="如：20-35K·15薪"></div>
+        <div class="fld"><label>渠道来源</label><input id="j_source" placeholder="如：Boss直聘 / 内推"></div>
+        <div class="fld"><label>状态</label><select id="j_status"><option>招聘中</option><option>已关闭</option></select></div>
+        <div class="fld full"><label>JD 链接</label><input id="j_link" placeholder="https://..."></div>
+        <div class="fld full"><label>备注</label><textarea id="j_notes" placeholder="职位要求要点、内推人等"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('jobModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveJob()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 投递弹窗 -->
+<div class="modal-mask" id="appModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="appModalTitle">新增投递</h3><button class="modal-close" onclick="closeModal('appModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld"><label>学员 *</label><select id="a_student"></select></div>
+        <div class="fld"><label>职位 *</label><select id="a_job"></select></div>
+        <div class="fld"><label>当前阶段</label><select id="a_stage"><option>待投递</option><option>已投递</option><option>笔试</option><option>面试</option><option>Offer</option><option>未通过</option></select></div>
+        <div class="fld"><label>投递日期</label><input type="date" id="a_date"></div>
+        <div class="fld full"><label>下一步行动</label><input id="a_next" placeholder="如：8月2日 前完成笔试 / 准备二面"></div>
+        <div class="fld full"><label>备注</label><textarea id="a_notes" placeholder="面试反馈、注意事项等"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger" id="a_deleteBtn" style="margin-right:auto;display:none" onclick="deleteAppFromModal()">删除</button>
+      <button class="btn" onclick="closeModal('appModal')">取消</button>
+      <button class="btn btn-primary" onclick="saveApp()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 作品集弹窗 -->
+<div class="modal-mask" id="pfModal">
+  <div class="modal">
+    <div class="modal-head"><h3>添加作品集条目</h3><button class="modal-close" onclick="closeModal('pfModal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld full"><label>作品名称 *</label><input id="p_title" placeholder="如：电商 App 改版设计"></div>
+        <div class="fld full"><label>链接</label><input id="p_url" placeholder="https://..."></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal('pfModal')">取消</button>
+      <button class="btn btn-primary" onclick="savePortfolio()">添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 学员详情抽屉 -->
+<div class="drawer-mask" id="drawerMask" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <div style="display:flex;align-items:center;gap:12px" id="drawerTitle"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="editFromDrawer()">编辑</button>
+      <button class="modal-close" onclick="closeDrawer()">✕</button>
+    </div>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 访问口令登录 -->
+<div class="modal-mask" id="loginModal" style="background:rgba(17,24,39,.62);align-items:center">
+  <div class="card" style="width:340px;max-width:92vw;padding:28px;text-align:center">
+    <div style="font-size:34px;margin-bottom:8px">🔐</div>
+    <div style="font-weight:700;font-size:17px;margin-bottom:4px">需要访问口令</div>
+    <div style="color:var(--text2);font-size:12.5px;margin-bottom:18px">请输入访问口令以进入学员进度管理</div>
+    <input id="loginPwd" type="password" placeholder="访问口令" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:10px" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">登录</button>
+    <div id="loginErr" style="color:var(--red);font-size:12.5px;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+
+<script>
+/* ================= 数据层 ================= */
+const LS_KEY = 'coach_pms_v1';
+const STAGES = ['待投递','已投递','笔试','面试','Offer','未通过'];
+const STAGE_COLOR = {'待投递':'#9ca3af','已投递':'#2563eb','笔试':'#7c3aed','面试':'#d97706','Offer':'#059669','未通过':'#dc2626'};
+const STAGE_TAG = {'待投递':'tag-gray','已投递':'tag-blue','笔试':'tag-purple','面试':'tag-amber','Offer':'tag-green','未通过':'tag-red'};
+const STU_STAGE_TAG = {'咨询中':'tag-gray','辅导中':'tag-blue','求职中':'tag-amber','已上岸':'tag-green','暂停':'tag-red'};
+const RESUME_TAG = {'待优化':'tag-red','优化中':'tag-amber','已定稿':'tag-green'};
+const AVATAR_COLORS = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#0ea5e9','#ef4444','#10b981'];
+
+let db = {students:[],jobs:[],apps:[]};
+let MODE = 'local';        // 'local' 浏览器存储 ｜ 'feishu' 飞书多维表格
+let lastSync = null;       // 最近一次同步时间
+let dragging = false;      // 拖拽中暂停自动刷新
+const POLL_MS = 15000;     // 自动同步间隔（15 秒）
+
+function load(){
+  try{ const raw = localStorage.getItem(LS_KEY); if(raw) return JSON.parse(raw); }catch(e){}
+  return seed();
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(db)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function daysAgo(n){ const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); }
+
+function seed(){
+  const s1={id:'s1',name:'林晓雨',contact:'138****2211',school:'华南理工大学',major:'工业设计',target:'产品经理',stage:'求职中',resumeStatus:'已定稿',resumeUrl:'https://docs.qq.com/example-resume-lin',notes:'逻辑清晰，需加强项目量化表达。期望 18-25K，倾向大厂。',portfolio:[{id:'p1',title:'校园二手交易小程序 PRD',url:'https://docs.qq.com/example-prd'},{id:'p2',title:'B端 SaaS 竞品分析报告',url:'https://docs.qq.com/example-analysis'}],createdAt:daysAgo(45)};
+  const s2={id:'s2',name:'陈子昂',contact:'wx: czang99',school:'武汉大学',major:'计算机科学',target:'前端工程师',stage:'求职中',resumeStatus:'优化中',resumeUrl:'',notes:'技术基础扎实，简历项目描述偏流水账，正在重写 STAR 结构。',portfolio:[{id:'p3',title:'个人技术博客',url:'https://example.dev'}],createdAt:daysAgo(30)};
+  const s3={id:'s3',name:'王佳怡',contact:'137****8876',school:'中山大学',major:'金融学',target:'数据分析师',stage:'辅导中',resumeStatus:'待优化',resumeUrl:'',notes:'转行数据分析，SQL 已过关，Python 学习中。计划 9 月开始投递。',portfolio:[],createdAt:daysAgo(12)};
+  const s4={id:'s4',name:'赵一鸣',contact:'wx: zym_2024',school:'深圳大学',major:'市场营销',target:'新媒体运营',stage:'已上岸',resumeStatus:'已定稿',resumeUrl:'https://docs.qq.com/example-resume-zhao',notes:'已入职某 MCN 机构，运营岗，月薪 12K。可作为案例学员。',portfolio:[{id:'p4',title:'小红书账号运营复盘（3个月涨粉5w）',url:'https://docs.qq.com/example-case'}],createdAt:daysAgo(90)};
+  const j1={id:'j1',company:'字节跳动',title:'产品经理（教育方向）',city:'深圳',salary:'25-40K·15薪',source:'内推',status:'招聘中',link:'https://jobs.bytedance.com/example',notes:'内推人：张老师；重视数据敏感度'};
+  const j2={id:'j2',company:'腾讯',title:'前端开发工程师',city:'深圳',salary:'25-45K·16薪',source:'官网',status:'招聘中',link:'https://careers.tencent.com/example',notes:'要求熟悉 React / 小程序'};
+  const j3={id:'j3',company:'美团',title:'商业数据分析师',city:'北京',salary:'20-35K·15薪',source:'Boss直聘',status:'招聘中',link:'',notes:'偏业务分析，SQL 笔试'};
+  const j4={id:'j4',company:'金山办公',title:'产品经理（协作方向）',city:'珠海',salary:'18-30K·14薪',source:'猎头',status:'招聘中',link:'',notes:''};
+  const j5={id:'j5',company:'某跨境电商独角兽',title:'高级前端工程师',city:'广州',salary:'30-50K·14薪',source:'内推',status:'已关闭',link:'',notes:'HC 已关闭，10月可能重开'};
+  const apps=[
+    {id:'a1',studentId:'s1',jobId:'j1',stage:'面试',appliedAt:daysAgo(14),next:'8月3日 二面，准备增长案例复盘',notes:'一面反馈：表达好，数据能力待验证',updatedAt:daysAgo(2)},
+    {id:'a2',studentId:'s1',jobId:'j4',stage:'已投递',appliedAt:daysAgo(5),next:'一周未响应则找猎头催进度',notes:'',updatedAt:daysAgo(5)},
+    {id:'a3',studentId:'s2',jobId:'j2',stage:'笔试',appliedAt:daysAgo(8),next:'8月1日前完成在线笔试',notes:'',updatedAt:daysAgo(3)},
+    {id:'a4',studentId:'s2',jobId:'j5',stage:'未通过',appliedAt:daysAgo(25),next:'',notes:'HC 关闭，非能力原因',updatedAt:daysAgo(20)},
+    {id:'a5',studentId:'s3',jobId:'j3',stage:'待投递',appliedAt:'',next:'等简历定稿后投递',notes:'',updatedAt:daysAgo(1)},
+    {id:'a6',studentId:'s4',jobId:'j1',stage:'Offer',appliedAt:daysAgo(60),next:'',notes:'历史记录（示例）',updatedAt:daysAgo(40)}
+  ];
+  const d={students:[s1,s2,s3,s4],jobs:[j1,j2,j3,j4,j5],apps};
+  localStorage.setItem(LS_KEY, JSON.stringify(d));
+  return d;
+}
+
+/* ================= 工具 ================= */
+const $=id=>document.getElementById(id);
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._tm); t._tm=setTimeout(()=>t.classList.remove('show'),2200); }
+function stuById(id){ return db.students.find(s=>s.id===id); }
+function jobById(id){ return db.jobs.find(j=>j.id===id); }
+function avatarOf(s,size){ const idx=[...s.id].reduce((a,c)=>a+c.charCodeAt(0),0)%AVATAR_COLORS.length; const sz=size?`;width:${size}px;height:${size}px;font-size:${Math.round(size*0.48)}px`:''; return `<span class="avatar" style="background:${AVATAR_COLORS[idx]}${sz}">${esc(s.name[0]||'?')}</span>`; }
+function closeModal(id){ $(id).classList.remove('show'); }
+function openModalEl(id){ $(id).classList.add('show'); }
+document.querySelectorAll('.modal-mask').forEach(m=>m.addEventListener('click',e=>{ if(e.target===m && m.id!=='loginModal') m.classList.remove('show'); }));
+
+/* ================= 飞书同步层 ================= */
+async function api(url,body){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!j.ok) throw new Error(j.error||'操作失败');
+  return j;
+}
+async function fetchRemote(){
+  const r=await fetch('/api/data',{cache:'no-store',credentials:'same-origin'});
+  return r.json();
+}
+async function refreshData(){
+  if(MODE!=='feishu') return;
+  const j=await fetchRemote();
+  if(j.ok){ db=j.data; lastSync=new Date(); updateSyncUI(); }
+  else throw new Error(j.error);
+}
+function updateSyncUI(){
+  const el=$('syncStatus');
+  if(MODE==='feishu'){
+    const t=lastSync?`${String(lastSync.getHours()).padStart(2,'0')}:${String(lastSync.getMinutes()).padStart(2,'0')}:${String(lastSync.getSeconds()).padStart(2,'0')}`:'-';
+    el.innerHTML=`🟢 已连接飞书表格<br><span style="color:var(--text2)">自动同步 · 上次 ${t}</span>`;
+    $('migrateBtn').style.display='';
+    $('storageHint').textContent='数据存储于飞书多维表格';
+  }else{
+    el.innerHTML='⚪️ 本地模式（未连接飞书）';
+    $('migrateBtn').style.display='none';
+    $('storageHint').textContent='数据保存在本机浏览器中';
+  }
+}
+function uiBusy(){
+  return dragging || document.querySelector('.modal-mask.show') || $('drawer').classList.contains('show');
+}
+function currentView(){ return views.find(v=>$('view-'+v).style.display!=='none')||'dashboard'; }
+function rerenderCurrent(){
+  const v=currentView();
+  if(v==='dashboard') renderDashboard();
+  if(v==='students') renderStudents();
+  if(v==='jobs') renderJobs();
+  if(v==='pipeline') renderPipeline();
+}
+function startPolling(){
+  setInterval(async()=>{
+    if(uiBusy()) return;
+    try{
+      const j=await fetchRemote();
+      if(j.ok){
+        lastSync=new Date();
+        if(JSON.stringify(j.data)!==JSON.stringify(db)){ db=j.data; rerenderCurrent(); toast('已从飞书同步最新数据'); }
+        updateSyncUI();
+      }
+    }catch(e){}
+  },POLL_MS);
+}
+function showLogin(){ $('loginModal').classList.add('show'); }
+async function doLogin(){
+  const pwd=$('loginPwd').value;
+  if(!pwd){ $('loginErr').textContent='请输入访问口令'; return; }
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pwd})});
+    const j=await r.json().catch(()=>({}));
+    if(j.ok){ $('loginModal').classList.remove('show'); $('loginErr').textContent=''; init(); }
+    else{ $('loginErr').textContent=j.error||'登录失败'; }
+  }catch(e){ $('loginErr').textContent='网络错误，请稍后再试'; }
+}
+async function doLogout(){
+  try{ await fetch('/api/logout',{method:'POST'}); }catch(e){}
+  await init();
+  if(!$('loginModal').classList.contains('show')) toast('已退出登录');
+}
+async function init(){
+  let r;
+  try{ r=await fetch('/api/data',{cache:'no-store',credentials:'same-origin'}); }catch(e){ r=null; }
+  if(r && r.status===401){ showLogin(); return; }
+  try{
+    const j=r?await r.json():{};
+    if(j.ok){ MODE='feishu'; db=j.data; lastSync=new Date(); startPolling(); }
+    else{ MODE='local'; db=load(); console.warn('飞书未就绪：',j.error); toast(j.error); }
+  }catch(e){ MODE='local'; db=load(); }
+  updateSyncUI();
+  renderDashboard();
+}
+/* 兼容：投递记录在飞书中按姓名/公司职位关联，可能存在未匹配的情况 */
+function appStu(a){ return stuById(a.studentId)||{id:'x'+(a.studentName||'?'),name:a.studentName||'?'}; }
+function appJobInfo(a){ return jobById(a.jobId)||{company:a.company||'?',title:a.jobTitle||'(职位未匹配)',city:''}; }
+function appsOfStudent(s){ return db.apps.filter(a=>a.studentId===s.id||(MODE==='feishu'&&a.studentName&&a.studentName===s.name)); }
+function appsOfJob(j){ return db.apps.filter(a=>a.jobId===j.id||(MODE==='feishu'&&a.company===j.company&&a.jobTitle===j.title)); }
+async function migrateLocal(){
+  let local=null;
+  try{ local=JSON.parse(localStorage.getItem(LS_KEY)); }catch(e){}
+  if(!local||(!local.students?.length&&!local.jobs?.length)){ toast('本地没有可迁移的数据'); return; }
+  if(!confirm(`将本地 ${local.students.length} 名学员、${local.jobs.length} 个职位、${local.apps.length} 条投递复制到飞书表格？\n（不会删除本地备份，重复执行会产生重复数据）`)) return;
+  try{
+    await api('/api/migrate',local);
+    await refreshData(); rerenderCurrent();
+    toast('迁移完成 ✅');
+  }catch(e){ toast('迁移失败：'+e.message); }
+}
+
+/* ================= 导航 ================= */
+const views=['dashboard','students','jobs','pipeline'];
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click',()=>switchView(btn.dataset.view));
+});
+function switchView(v){
+  views.forEach(x=>$('view-'+x).style.display = x===v?'':'none');
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  if(v==='dashboard') renderDashboard();
+  if(v==='students') renderStudents();
+  if(v==='jobs') renderJobs();
+  if(v==='pipeline') renderPipeline();
+}
+
+/* ================= 仪表盘 ================= */
+function renderDashboard(){
+  const w=['日','一','二','三','四','五','六'];
+  const n=new Date();
+  $('dashDate').textContent=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日 星期${w[n.getDay()]} · 今天也要帮学员往前推一步`;
+  const activeApps=db.apps.filter(a=>a.stage!=='未通过');
+  const stats=[
+    {ico:'🧑‍🎓',lbl:'学员总数',num:db.students.length,color:'#6366f1'},
+    {ico:'🔥',lbl:'求职中学员',num:db.students.filter(s=>s.stage==='求职中').length,color:'#d97706'},
+    {ico:'🏆',lbl:'已上岸',num:db.students.filter(s=>s.stage==='已上岸').length,color:'#059669'},
+    {ico:'📮',lbl:'投递总数',num:db.apps.length,color:'#2563eb'},
+    {ico:'🎤',lbl:'面试进行中',num:db.apps.filter(a=>a.stage==='面试').length,color:'#7c3aed'},
+    {ico:'✉️',lbl:'Offer 数',num:db.apps.filter(a=>a.stage==='Offer').length,color:'#059669'}
+  ];
+  $('statsGrid').innerHTML=stats.map(s=>`<div class="stat-card"><span class="ico">${s.ico}</span><div class="num" style="color:${s.color}">${s.num}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+  const max=Math.max(1,...STAGES.map(st=>db.apps.filter(a=>a.stage===st).length));
+  $('funnelBody').innerHTML=STAGES.map(st=>{
+    const c=db.apps.filter(a=>a.stage===st).length;
+    return `<div class="funnel-row"><div class="funnel-label">${st}</div><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${c/max*100}%;background:${STAGE_COLOR[st]}"></div></div><div class="funnel-num">${c}</div></div>`;
+  }).join('') || '<div class="empty">暂无投递数据</div>';
+
+  const recent=[...db.apps].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,8);
+  $('activityBody').innerHTML=recent.length?recent.map(a=>{
+    const s=appStu(a),j=appJobInfo(a);
+    return `<div class="activity-item"><span class="tag ${STAGE_TAG[a.stage]}">${a.stage}</span><div style="flex:1"><b>${esc(s.name)}</b> · ${esc(j.company)}｜${esc(j.title)}${a.next?`<div style="color:var(--amber);font-size:12px;margin-top:2px">⏭ ${esc(a.next)}</div>`:''}</div><span class="activity-time">${a.updatedAt||''}</span></div>`;
+  }).join(''):'<div class="empty">暂无动态</div>';
+}
+
+/* ================= 学员管理 ================= */
+function renderStudents(){
+  const kw=($('stuSearch').value||'').trim().toLowerCase();
+  const st=$('stuStageFilter').value, rs=$('stuResumeFilter').value;
+  let list=db.students.filter(s=>{
+    if(st&&s.stage!==st) return false;
+    if(rs&&s.resumeStatus!==rs) return false;
+    if(kw&&![s.name,s.school,s.major,s.target].join(' ').toLowerCase().includes(kw)) return false;
+    return true;
+  });
+  if(!list.length){ $('studentTable').innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>暂无学员，点击右上角「新增学员」开始</div>'; return; }
+  $('studentTable').innerHTML=`<table><thead><tr>
+    <th>学员</th><th>目标岗位</th><th>阶段</th><th>简历</th><th>作品集</th><th>投递</th><th>操作</th>
+  </tr></thead><tbody>${list.map(s=>{
+    const myApps=appsOfStudent(s);
+    const appCount=myApps.length;
+    const offerCount=myApps.filter(a=>a.stage==='Offer').length;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px">${avatarOf(s)}<div><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div></td>
+      <td>${esc(s.target||'-')}</td>
+      <td><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span></td>
+      <td>${s.resumeUrl?`<a href="${esc(s.resumeUrl)}" target="_blank" title="打开简历">📄</a> `:''}<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></td>
+      <td>${(s.portfolio||[]).length? `🗂 ${s.portfolio.length} 项`:'<span style="color:var(--text2)">—</span>'}</td>
+      <td>${appCount?`${appCount} 个${offerCount?` <span class="tag tag-green">Offer×${offerCount}</span>`:''}`:'<span style="color:var(--text2)">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-ghost" onclick="openDrawer('${s.id}')">详情</button>
+        <button class="btn-ghost" onclick="openStudentModal('${s.id}')">编辑</button>
+        <button class="btn-ghost danger" onclick="deleteStudent('${s.id}')">删除</button>
+      </td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+
+let editingStudentId=null;
+function openStudentModal(id){
+  editingStudentId=id||null;
+  $('studentModalTitle').textContent=id?'编辑学员':'新增学员';
+  const s=id?stuById(id):{};
+  $('f_name').value=s.name||''; $('f_contact').value=s.contact||'';
+  $('f_school').value=s.school||''; $('f_major').value=s.major||'';
+  $('f_target').value=s.target||''; $('f_stage').value=s.stage||'咨询中';
+  $('f_resumeStatus').value=s.resumeStatus||'待优化'; $('f_resumeUrl').value=s.resumeUrl||'';
+  $('f_notes').value=s.notes||'';
+  openModalEl('studentModal');
+}
+async function saveStudent(){
+  const name=$('f_name').value.trim();
+  if(!name){ toast('请填写学员姓名'); return; }
+  const data={name,contact:$('f_contact').value.trim(),school:$('f_school').value.trim(),major:$('f_major').value.trim(),target:$('f_target').value.trim(),stage:$('f_stage').value,resumeStatus:$('f_resumeStatus').value,resumeUrl:$('f_resumeUrl').value.trim(),notes:$('f_notes').value.trim()};
+  try{
+    if(MODE==='feishu'){
+      const old=editingStudentId?stuById(editingStudentId):null;
+      const full={...(old||{portfolio:[],createdAt:today()}),...data};
+      await api('/api/save',{type:'student',id:editingStudentId,data:full});
+      await refreshData();
+    }else{
+      if(editingStudentId) Object.assign(stuById(editingStudentId),data);
+      else db.students.push({id:uid(),portfolio:[],createdAt:today(),...data});
+      save();
+    }
+    toast(editingStudentId?'学员信息已更新':'学员已添加');
+    closeModal('studentModal'); renderStudents();
+    if(drawerStudentId&&stuById(drawerStudentId)) openDrawer(drawerStudentId);
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+async function deleteStudent(id){
+  const s=stuById(id);
+  const n=appsOfStudent(s).length;
+  if(!confirm(`确定删除学员「${s.name}」？${n?`\n其名下 ${n} 条投递记录也将一并删除。`:''}`)) return;
+  try{
+    if(MODE==='feishu'){
+      await api('/api/delete',{type:'student',id});
+      await refreshData();
+    }else{
+      db.students=db.students.filter(x=>x.id!==id);
+      db.apps=db.apps.filter(a=>a.studentId!==id);
+      save();
+    }
+    renderStudents(); toast('已删除');
+  }catch(e){ toast('删除失败：'+e.message); }
+}
+
+/* ===== 学员详情抽屉 ===== */
+let drawerStudentId=null;
+function openDrawer(id){
+  const s=stuById(id); if(!s) return;
+  drawerStudentId=id;
+  $('drawerTitle').innerHTML=`${avatarOf(s)}<div><div style="font-weight:700;font-size:16px">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.target||'目标岗位未填')} · <span class="tag ${STU_STAGE_TAG[s.stage]}" style="font-size:11px">${esc(s.stage)}</span></div></div>`;
+  const apps=appsOfStudent(s).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  $('drawerBody').innerHTML=`
+    <div class="sec-title">基本信息</div>
+    <div class="info-grid">
+      <div><div class="k">联系方式</div>${esc(s.contact||'-')}</div>
+      <div><div class="k">学校 / 专业</div>${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div>
+      <div><div class="k">加入时间</div>${esc(s.createdAt||'-')}</div>
+      <div><div class="k">辅导阶段</div>${esc(s.stage)}</div>
+    </div>
+    ${s.notes?`<div style="margin-top:12px;background:#fafbfc;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;line-height:1.6;color:var(--text2)">📝 ${esc(s.notes)}</div>`:''}
+    <div class="sec-title">简历</div>
+    <div class="pf-item"><div><div class="t">简历状态：<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>${s.resumeUrl?`<div class="u"><a href="${esc(s.resumeUrl)}" target="_blank">${esc(s.resumeUrl)}</a></div>`:'<div class="u">未上传简历链接</div>'}</div></div>
+    <div class="sec-title">作品集（${(s.portfolio||[]).length}）<button class="btn btn-sm" onclick="openPfModal()">＋ 添加</button></div>
+    ${(s.portfolio||[]).length?(s.portfolio.map(p=>`<div class="pf-item"><div style="flex:1"><div class="t">🗂 ${esc(p.title)}</div>${p.url?`<div class="u"><a href="${esc(p.url)}" target="_blank">${esc(p.url)}</a></div>`:''}</div><button class="btn-ghost danger" onclick="deletePortfolio('${p.id}')">删除</button></div>`).join('')):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无作品集条目</div>'}
+    <div class="sec-title">投递记录（${apps.length}）<button class="btn btn-sm" onclick="openAppModal(null,'${id}')">＋ 新增投递</button></div>
+    ${apps.length?apps.map(a=>{
+      const j=appJobInfo(a);
+      return `<div class="app-item"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(j.company)}｜${esc(j.title)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${a.appliedAt?'投递于 '+a.appliedAt:'未投递'}${a.next?` · ⏭ ${esc(a.next)}`:''}</div></div><span class="tag ${STAGE_TAG[a.stage]}">${a.stage}</span><button class="btn-ghost" onclick="openAppModal('${a.id}')">编辑</button></div>`;
+    }).join(''):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无投递记录</div>'}
+  `;
+  $('drawerMask').classList.add('show');
+  $('drawer').classList.add('show');
+}
+function closeDrawer(){ drawerStudentId=null; $('drawerMask').classList.remove('show'); $('drawer').classList.remove('show'); }
+function editFromDrawer(){ if(drawerStudentId) openStudentModal(drawerStudentId); }
+function openPfModal(){ $('p_title').value=''; $('p_url').value=''; openModalEl('pfModal'); }
+async function persistStudentObj(s){
+  if(MODE==='feishu'){ await api('/api/save',{type:'student',id:s.id,data:s}); await refreshData(); }
+  else save();
+}
+async function savePortfolio(){
+  const t=$('p_title').value.trim();
+  if(!t){ toast('请填写作品名称'); return; }
+  const s=stuById(drawerStudentId); if(!s) return;
+  s.portfolio=s.portfolio||[];
+  s.portfolio.push({id:uid(),title:t,url:$('p_url').value.trim()});
+  try{
+    await persistStudentObj(s);
+    closeModal('pfModal'); openDrawer(drawerStudentId); renderStudents(); toast('已添加作品');
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+async function deletePortfolio(pid){
+  const s=stuById(drawerStudentId); if(!s) return;
+  s.portfolio=s.portfolio.filter(p=>p.id!==pid);
+  try{
+    await persistStudentObj(s);
+    openDrawer(drawerStudentId); renderStudents();
+  }catch(e){ toast('删除失败：'+e.message); }
+}
+
+/* ================= 职位库 ================= */
+function renderJobs(){
+  const kw=($('jobSearch').value||'').trim().toLowerCase();
+  const st=$('jobStatusFilter').value;
+  let list=db.jobs.filter(j=>{
+    if(st&&j.status!==st) return false;
+    if(kw&&![j.company,j.title,j.city].join(' ').toLowerCase().includes(kw)) return false;
+    return true;
+  });
+  if(!list.length){ $('jobTable').innerHTML='<div class="empty"><div class="big">💼</div>暂无职位，点击右上角「新增职位」开始</div>'; return; }
+  $('jobTable').innerHTML=`<table><thead><tr>
+    <th>公司 / 职位</th><th>城市</th><th>薪资</th><th>渠道</th><th>状态</th><th>投递数</th><th>操作</th>
+  </tr></thead><tbody>${list.map(j=>{
+    const c=appsOfJob(j).length;
+    return `<tr>
+      <td><div style="font-weight:600">${esc(j.company)}</div><div style="font-size:12.5px;color:var(--text2)">${esc(j.title)}${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD">🔗</a>`:''}</div></td>
+      <td>${esc(j.city||'-')}</td>
+      <td>${esc(j.salary||'-')}</td>
+      <td>${esc(j.source||'-')}</td>
+      <td><span class="tag ${j.status==='招聘中'?'tag-green':'tag-gray'}">${esc(j.status)}</span></td>
+      <td>${c||'<span style="color:var(--text2)">—</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn-ghost" onclick="openJobModal('${j.id}')">编辑</button>
+        <button class="btn-ghost danger" onclick="deleteJob('${j.id}')">删除</button>
+      </td></tr>`;
+  }).join('')}</tbody></table>`;
+}
+let editingJobId=null;
+function openJobModal(id){
+  editingJobId=id||null;
+  $('jobModalTitle').textContent=id?'编辑职位':'新增职位';
+  const j=id?jobById(id):{};
+  $('j_company').value=j.company||''; $('j_title').value=j.title||'';
+  $('j_city').value=j.city||''; $('j_salary').value=j.salary||'';
+  $('j_source').value=j.source||''; $('j_status').value=j.status||'招聘中';
+  $('j_link').value=j.link||''; $('j_notes').value=j.notes||'';
+  openModalEl('jobModal');
+}
+async function saveJob(){
+  const company=$('j_company').value.trim(), title=$('j_title').value.trim();
+  if(!company||!title){ toast('请填写公司和职位名称'); return; }
+  const data={company,title,city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim()};
+  try{
+    if(MODE==='feishu'){
+      await api('/api/save',{type:'job',id:editingJobId,data});
+      await refreshData();
+    }else{
+      if(editingJobId) Object.assign(jobById(editingJobId),data);
+      else db.jobs.push({id:uid(),...data});
+      save();
+    }
+    toast(editingJobId?'职位已更新':'职位已添加');
+    closeModal('jobModal'); renderJobs();
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+async function deleteJob(id){
+  const j=jobById(id);
+  const n=appsOfJob(j).length;
+  if(!confirm(`确定删除职位「${j.company}｜${j.title}」？${n?`\n关联的 ${n} 条投递记录也将一并删除。`:''}`)) return;
+  try{
+    if(MODE==='feishu'){
+      await api('/api/delete',{type:'job',id});
+      await refreshData();
+    }else{
+      db.jobs=db.jobs.filter(x=>x.id!==id);
+      db.apps=db.apps.filter(a=>a.jobId!==id);
+      save();
+    }
+    renderJobs(); toast('已删除');
+  }catch(e){ toast('删除失败：'+e.message); }
+}
+
+/* ================= 投递进度看板 ================= */
+function renderPipeline(){
+  const sel=$('pipeStudentFilter');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">全部学员</option>'+db.students.map(s=>`<option value="${s.id}" ${s.id===cur?'selected':''}>${esc(s.name)}</option>`).join('');
+  const filter=sel.value;
+  const filterStu=filter?stuById(filter):null;
+  $('kanban').innerHTML=STAGES.map(st=>{
+    const cards=db.apps.filter(a=>a.stage===st&&(!filter||a.studentId===filter||(filterStu&&a.studentName&&a.studentName===filterStu.name)));
+    return `<div class="kb-col" data-stage="${st}">
+      <div class="kb-col-head"><span style="display:flex;align-items:center;gap:7px"><span class="dot" style="background:${STAGE_COLOR[st]}"></span>${st}</span><span class="kb-count">${cards.length}</span></div>
+      <div class="kb-cards">${cards.map(a=>{
+        const s=appStu(a),j=appJobInfo(a);
+        return `<div class="kb-card" draggable="true" data-id="${a.id}" onclick="openAppModal('${a.id}')">
+          <div class="stu">${avatarOf(s,22)}${esc(s.name)}</div>
+          <div class="job">${esc(j.company)}<br>${esc(j.title)}</div>
+          <div class="meta"><span>${a.appliedAt?'📅 '+a.appliedAt.slice(5):''}</span><span>${esc(j.city||'')}</span></div>
+          ${a.next?`<div class="next">⏭ ${esc(a.next)}</div>`:''}
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+  }).join('');
+  bindDragDrop();
+}
+function bindDragDrop(){
+  let draggedId=null;
+  document.querySelectorAll('.kb-card').forEach(card=>{
+    card.addEventListener('dragstart',e=>{ draggedId=card.dataset.id; dragging=true; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    card.addEventListener('dragend',()=>{ dragging=false; card.classList.remove('dragging'); });
+  });
+  document.querySelectorAll('.kb-col').forEach(col=>{
+    col.addEventListener('dragover',e=>{ e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave',()=>col.classList.remove('drag-over'));
+    col.addEventListener('drop',async e=>{
+      e.preventDefault(); col.classList.remove('drag-over');
+      if(!draggedId) return;
+      const app=db.apps.find(a=>a.id===draggedId);
+      const newStage=col.dataset.stage;
+      draggedId=null; dragging=false;
+      if(app&&app.stage!==newStage){
+        const oldStage=app.stage;
+        app.stage=newStage; app.updatedAt=today();
+        if(newStage==='已投递'&&!app.appliedAt) app.appliedAt=today();
+        renderPipeline();
+        try{
+          if(MODE==='feishu'){ await api('/api/save',{type:'app',id:app.id,data:app}); await refreshData(); renderPipeline(); }
+          else save();
+          toast(`已更新为「${newStage}」`);
+        }catch(err){
+          app.stage=oldStage; renderPipeline();
+          toast('同步失败：'+err.message);
+        }
+      }
+    });
+  });
+}
+
+let editingAppId=null;
+function openAppModal(id,presetStudentId){
+  editingAppId=id||null;
+  $('appModalTitle').textContent=id?'编辑投递':'新增投递';
+  $('a_deleteBtn').style.display=id?'':'none';
+  const a=id?db.apps.find(x=>x.id===id):{};
+  $('a_student').innerHTML=db.students.map(s=>`<option value="${s.id}">${esc(s.name)}（${esc(s.target||'')}）</option>`).join('');
+  $('a_job').innerHTML=db.jobs.map(j=>`<option value="${j.id}">${esc(j.company)}｜${esc(j.title)}${j.status==='已关闭'?'（已关闭）':''}</option>`).join('');
+  if(!db.students.length){ toast('请先添加学员'); return; }
+  if(!db.jobs.length){ toast('请先添加职位'); return; }
+  $('a_student').value=a.studentId||presetStudentId||db.students[0].id;
+  $('a_job').value=a.jobId||db.jobs[0].id;
+  $('a_stage').value=a.stage||'待投递';
+  $('a_date').value=a.appliedAt||'';
+  $('a_next').value=a.next||'';
+  $('a_notes').value=a.notes||'';
+  openModalEl('appModal');
+}
+async function saveApp(){
+  const data={studentId:$('a_student').value,jobId:$('a_job').value,stage:$('a_stage').value,appliedAt:$('a_date').value,next:$('a_next').value.trim(),notes:$('a_notes').value.trim(),updatedAt:today()};
+  if(data.stage!=='待投递'&&!data.appliedAt) data.appliedAt=today();
+  try{
+    if(!editingAppId&&db.apps.some(a=>a.studentId===data.studentId&&a.jobId===data.jobId)&&!confirm('该学员已投递过此职位，仍要再创建一条记录吗？')) return;
+    if(MODE==='feishu'){
+      await api('/api/save',{type:'app',id:editingAppId,data});
+      await refreshData();
+    }else{
+      if(editingAppId) Object.assign(db.apps.find(a=>a.id===editingAppId),data);
+      else db.apps.push({id:uid(),...data});
+      save();
+    }
+    toast(editingAppId?'投递记录已更新':'投递已创建');
+    closeModal('appModal'); renderPipeline();
+    if(drawerStudentId&&stuById(drawerStudentId)) openDrawer(drawerStudentId);
+    renderStudents();
+  }catch(e){ toast('保存失败：'+e.message); }
+}
+async function deleteAppFromModal(){
+  if(!editingAppId) return;
+  if(!confirm('确定删除这条投递记录？')) return;
+  try{
+    if(MODE==='feishu'){
+      await api('/api/delete',{type:'app',id:editingAppId});
+      await refreshData();
+    }else{
+      db.apps=db.apps.filter(a=>a.id!==editingAppId);
+      save();
+    }
+    closeModal('appModal'); renderPipeline();
+    if(drawerStudentId&&stuById(drawerStudentId)) openDrawer(drawerStudentId);
+    toast('已删除');
+  }catch(e){ toast('删除失败：'+e.message); }
+}
+
+/* ================= 导入导出 ================= */
+function exportData(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`学员进度数据备份_${today()}.json`;
+  a.click();
+  toast('数据已导出');
+}
+function importData(input){
+  if(MODE==='feishu'){ toast('飞书模式下请直接在飞书表格中编辑数据'); input.value=''; return; }
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      if(!d.students||!d.jobs||!d.apps) throw new Error('格式不正确');
+      if(!confirm('导入将覆盖当前所有数据，确定继续？')) return;
+      db=d; save();
+      switchView('dashboard');
+      toast('数据导入成功');
+    }catch(e){ toast('导入失败：文件格式不正确'); }
+    input.value='';
+  };
+  r.readAsText(f);
+}
+
+/* ================= 初始化 ================= */
+init();
+</script>
+</body>
+</html>

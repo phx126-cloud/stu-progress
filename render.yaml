@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: stu-progress
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: FEISHU_APP_ID
+        value: ""
+      - key: FEISHU_APP_SECRET
+        value: ""
+      - key: FEISHU_APP_TOKEN
+        value: ""
+      - key: ACCESS_PASSWORD
+        value: "3a3ed5efb1c88e27"
+      - key: PORT
+        value: "10000"
