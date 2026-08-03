@@ -11,9 +11,13 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return json(res, { error: 'Method Not Allowed' }, 405);
   if (!isAuthed(req)) return json(res, { error: '未登录或登录已过期', needLogin: true }, 401);
 
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    return json(res, { error: '服务器未配置 BLOB_READ_WRITE_TOKEN：请在 Vercel 项目 Settings → Environment Variables 中添加该变量（值为 Blob Store 的读写令牌）。' }, 500);
+  // 兼容两种 Vercel Blob 认证方式：
+  // 1) 旧方式：创建 Blob Store 时自动注入 BLOB_READ_WRITE_TOKEN
+  // 2) 新方式（推荐）：连接项目到 Blob Store 时走 OIDC（BLOB_STORE_ID + VERCEL_OIDC_TOKEN）
+  const hasStatic = !!process.env.BLOB_READ_WRITE_TOKEN;
+  const hasOidc = !!process.env.BLOB_STORE_ID;
+  if (!hasStatic && !hasOidc) {
+    return json(res, { error: '服务器未连接 Vercel Blob：请先在 Vercel 项目 Storage 中创建 Blob Store 并关联本项目。' }, 500);
   }
 
   try {
@@ -30,12 +34,13 @@ module.exports = async (req, res) => {
     const rawName = (req.query.name || 'file').toString().slice(0, 120);
     const safeName = rawName.replace(/[^\w.\-]/g, '_').slice(0, 80) || 'file';
     const kind = req.query.kind === 'portfolio' ? 'portfolio' : 'resume';
-    const blob = await put(`${kind}/${Date.now()}-${safeName}`, buf, {
+    const options = {
       access: 'public',
-      token,
       addRandomSuffix: true,
       contentType: req.headers['content-type'] || 'application/octet-stream'
-    });
+    };
+    if (hasStatic) options.token = process.env.BLOB_READ_WRITE_TOKEN;
+    const blob = await put(`${kind}/${Date.now()}-${safeName}`, buf, options);
     return json(res, { url: blob.downloadUrl, name: rawName });
   } catch (e) {
     return json(res, { error: e.message || '上传失败' }, 500);
