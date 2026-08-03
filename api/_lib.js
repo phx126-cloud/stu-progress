@@ -98,6 +98,10 @@ const TABLE_DEFS = {
     ['投递日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1]
   ]
 };
+async function getTableFields(tid) {
+  const d = await feishu('GET', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/fields?page_size=200`);
+  return d.items || [];
+}
 let tableIds = null;
 async function ensureTables() {
   if (tableIds) return tableIds;
@@ -106,13 +110,31 @@ async function ensureTables() {
   (d.items || []).forEach(t => existing[t.name] = t.table_id);
   const ids = {};
   for (const name of Object.keys(TABLE_DEFS)) {
-    if (existing[name]) { ids[name] = existing[name]; continue; }
-    const fields = TABLE_DEFS[name].map(([fn, type, opts]) => ({
-      field_name: fn, type,
-      ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
-    }));
-    const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
-    ids[name] = c.table_id;
+    const def = TABLE_DEFS[name];
+    let tid = existing[name];
+    // 校验已存在表的字段类型，类型不符则删除重建（常见于手动建表时把文本字段设成了数字）
+    if (tid) {
+      try {
+        const fdefs = await getTableFields(tid);
+        const expected = {};
+        def.forEach(([fn, type]) => { expected[fn] = Number(type); });
+        const bad = fdefs.find(f => expected[f.field_name] !== undefined && Number(f.type) !== expected[f.field_name]);
+        if (bad) {
+          console.warn(`表[${name}]字段[${bad.field_name}]类型不符（实际${bad.type}/期望${expected[bad.field_name]}），删除重建`);
+          await feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}`);
+          tid = null;
+        }
+      } catch (e) { /* 无法校验则保留原表 */ }
+    }
+    if (!tid) {
+      const fields = def.map(([fn, type, opts]) => ({
+        field_name: fn, type,
+        ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
+      }));
+      const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
+      tid = c.table_id;
+    }
+    ids[name] = tid;
   }
   tableIds = ids;
   return ids;
