@@ -172,6 +172,12 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 .fld input,.fld select,.fld textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
 .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--primary)}
 .fld textarea{resize:vertical;min-height:66px}
+.upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.up-status{font-size:12px;color:var(--text2)}
+.file-chip{display:flex;align-items:center;gap:8px;margin-top:8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;padding:7px 10px;font-size:13px}
+.file-chip a{color:#4338ca;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .chip-x{border:none;background:transparent;color:#ef4444;cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+.file-chip .chip-x:hover{color:#b91c1c}
 
 /* ===== 详情抽屉 ===== */
 .drawer-mask{position:fixed;inset:0;background:rgba(17,24,39,.35);z-index:90;display:none}
@@ -307,7 +313,16 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
         <div class="fld"><label>目标岗位</label><input id="f_target" placeholder="如：产品经理"></div>
         <div class="fld"><label>辅导阶段</label><select id="f_stage"><option>咨询中</option><option>辅导中</option><option>求职中</option><option>已上岸</option><option>暂停</option></select></div>
         <div class="fld"><label>简历状态</label><select id="f_resumeStatus"><option>待优化</option><option>优化中</option><option>已定稿</option></select></div>
-        <div class="fld"><label>简历链接（网盘/在线文档）</label><input id="f_resumeUrl" placeholder="https://..."></div>
+        <div class="fld">
+          <label>简历文件 / 链接</label>
+          <input id="f_resumeUrl" placeholder="可粘贴网盘链接，或下方上传文件" style="margin-bottom:8px">
+          <div class="upload-row">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('f_resumeFile').click()">📎 上传简历文件</button>
+            <input type="file" id="f_resumeFile" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.ppt,.pptx" style="display:none" onchange="handleResumeFile(this)">
+            <span id="resumeUpStatus" class="up-status"></span>
+          </div>
+          <div id="resumeChip" class="file-chip" style="display:none"><a id="resumeChipLink" target="_blank"></a><button type="button" class="chip-x" onclick="clearResumeFile()" title="移除">✕</button></div>
+        </div>
         <div class="fld full"><label>备注</label><textarea id="f_notes" placeholder="辅导重点、性格特点、期望薪资等"></textarea></div>
       </div>
     </div>
@@ -370,7 +385,16 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
     <div class="modal-body">
       <div class="form-grid">
         <div class="fld full"><label>作品名称 *</label><input id="p_title" placeholder="如：电商 App 改版设计"></div>
-        <div class="fld full"><label>链接</label><input id="p_url" placeholder="https://..."></div>
+        <div class="fld full">
+          <label>文件 / 链接</label>
+          <input id="p_url" placeholder="可粘贴链接，或下方上传文件" style="margin-bottom:8px">
+          <div class="upload-row">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('p_file').click()">📎 上传文件</button>
+            <input type="file" id="p_file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.ppt,.pptx,.zip" style="display:none" onchange="handlePfFile(this)">
+            <span id="pfUpStatus" class="up-status"></span>
+          </div>
+          <div id="pfChip" class="file-chip" style="display:none"><a id="pfChipLink" target="_blank"></a><button type="button" class="chip-x" onclick="clearPfFile()" title="移除">✕</button></div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -667,7 +691,7 @@ function renderStudents(){
       <td><div style="display:flex;align-items:center;gap:10px">${avatarOf(s)}<div><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div></td>
       <td>${esc(s.target||'-')}</td>
       <td><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span></td>
-      <td>${s.resumeUrl?`<a href="${esc(s.resumeUrl)}" target="_blank" title="打开简历">📄</a> `:''}<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></td>
+      <td>${s.resumeUrl?`<a href="${esc(s.resumeUrl)}" target="_blank" title="${esc(s.resumeName||'打开简历')}">📄</a> `:''}<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></td>
       <td>${(s.portfolio||[]).length? `🗂 ${s.portfolio.length} 项`:'<span style="color:var(--text2)">—</span>'}</td>
       <td>${appCount?`${appCount} 个${offerCount?` <span class="tag tag-green">Offer×${offerCount}</span>`:''}`:'<span style="color:var(--text2)">—</span>'}</td>
       <td style="white-space:nowrap">
@@ -679,6 +703,39 @@ function renderStudents(){
 }
 
 let editingStudentId=null;
+let pendingResume=null; // {url,name}
+let pendingPf=null;
+async function uploadFile(file, kind){
+  const statusEl = kind==='resume' ? $('resumeUpStatus') : $('pfUpStatus');
+  if(statusEl) statusEl.textContent='上传中…';
+  try{
+    const res = await fetch('/api/upload?name='+encodeURIComponent(file.name)+'&kind='+kind, { method:'POST', body: file });
+    const d = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(d.error||'上传失败');
+    return { url:d.url, name:d.name||file.name };
+  } finally { if(statusEl) statusEl.textContent=''; }
+}
+function handleResumeFile(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  uploadFile(file,'resume').then(r=>{ pendingResume=r; $('f_resumeUrl').value=r.url; showResumeChip(r); toast('简历已上传'); })
+    .catch(e=>{ toast('上传失败：'+e.message); });
+}
+function showResumeChip(r){
+  $('resumeChip').style.display='flex';
+  const a=$('resumeChipLink'); a.href=r.url; a.textContent='📄 '+(r.name||'简历文件');
+}
+function clearResumeFile(){ pendingResume=null; $('f_resumeUrl').value=''; $('resumeChip').style.display='none'; const f=$('f_resumeFile'); if(f) f.value=''; }
+function handlePfFile(input){
+  const file=input.files&&input.files[0]; if(!file) return;
+  uploadFile(file,'portfolio').then(r=>{ pendingPf=r; $('p_url').value=r.url; showPfChip(r); toast('文件已上传'); })
+    .catch(e=>{ toast('上传失败：'+e.message); });
+}
+function showPfChip(r){
+  $('pfChip').style.display='flex';
+  const a=$('pfChipLink'); a.href=r.url; a.textContent='📎 '+(r.name||'文件');
+}
+function clearPfFile(){ pendingPf=null; $('p_url').value=''; $('pfChip').style.display='none'; const f=$('p_file'); if(f) f.value=''; }
+
 function openStudentModal(id){
   editingStudentId=id||null;
   $('studentModalTitle').textContent=id?'编辑学员':'新增学员';
@@ -688,12 +745,16 @@ function openStudentModal(id){
   $('f_target').value=s.target||''; $('f_stage').value=s.stage||'咨询中';
   $('f_resumeStatus').value=s.resumeStatus||'待优化'; $('f_resumeUrl').value=s.resumeUrl||'';
   $('f_notes').value=s.notes||'';
+  pendingResume = s.resumeUrl ? { url:s.resumeUrl, name:s.resumeName||s.resumeUrl } : null;
+  if(pendingResume) showResumeChip(pendingResume); else $('resumeChip').style.display='none';
+  const rf=$('f_resumeFile'); if(rf) rf.value='';
   openModalEl('studentModal');
 }
 async function saveStudent(){
   const name=$('f_name').value.trim();
   if(!name){ toast('请填写学员姓名'); return; }
-  const data={name,contact:$('f_contact').value.trim(),school:$('f_school').value.trim(),major:$('f_major').value.trim(),target:$('f_target').value.trim(),stage:$('f_stage').value,resumeStatus:$('f_resumeStatus').value,resumeUrl:$('f_resumeUrl').value.trim(),notes:$('f_notes').value.trim()};
+  const resumeName = pendingResume ? pendingResume.name : (editingStudentId ? (stuById(editingStudentId).resumeName||'') : '');
+  const data={name,contact:$('f_contact').value.trim(),school:$('f_school').value.trim(),major:$('f_major').value.trim(),target:$('f_target').value.trim(),stage:$('f_stage').value,resumeStatus:$('f_resumeStatus').value,resumeUrl:$('f_resumeUrl').value.trim(),resumeName,notes:$('f_notes').value.trim()};
   try{
     if(MODE==='feishu'){
       const old=editingStudentId?stuById(editingStudentId):null;
@@ -744,9 +805,9 @@ function openDrawer(id){
     </div>
     ${s.notes?`<div style="margin-top:12px;background:#fafbfc;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;line-height:1.6;color:var(--text2)">📝 ${esc(s.notes)}</div>`:''}
     <div class="sec-title">简历</div>
-    <div class="pf-item"><div><div class="t">简历状态：<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>${s.resumeUrl?`<div class="u"><a href="${esc(s.resumeUrl)}" target="_blank">${esc(s.resumeUrl)}</a></div>`:'<div class="u">未上传简历链接</div>'}</div></div>
+    <div class="pf-item"><div><div class="t">简历状态：<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>${s.resumeUrl?`<div class="u"><a href="${esc(s.resumeUrl)}" target="_blank">📄 ${esc(s.resumeName||'查看简历')}</a></div>`:'<div class="u">未上传简历</div>'}</div></div>
     <div class="sec-title">作品集（${(s.portfolio||[]).length}）<button class="btn btn-sm" onclick="openPfModal()">＋ 添加</button></div>
-    ${(s.portfolio||[]).length?(s.portfolio.map(p=>`<div class="pf-item"><div style="flex:1"><div class="t">🗂 ${esc(p.title)}</div>${p.url?`<div class="u"><a href="${esc(p.url)}" target="_blank">${esc(p.url)}</a></div>`:''}</div><button class="btn-ghost danger" onclick="deletePortfolio('${p.id}')">删除</button></div>`).join('')):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无作品集条目</div>'}
+    ${(s.portfolio||[]).length?(s.portfolio.map(p=>`<div class="pf-item"><div style="flex:1"><div class="t">🗂 ${esc(p.title)}</div>${p.url?`<div class="u"><a href="${esc(p.url)}" target="_blank">📎 ${esc(p.name||p.url)}</a></div>`:''}</div><button class="btn-ghost danger" onclick="deletePortfolio('${p.id}')">删除</button></div>`).join('')):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无作品集条目</div>'}
     <div class="sec-title">投递记录（${apps.length}）<button class="btn btn-sm" onclick="openAppModal(null,'${id}')">＋ 新增投递</button></div>
     ${apps.length?apps.map(a=>{
       const j=appJobInfo(a);
@@ -758,7 +819,7 @@ function openDrawer(id){
 }
 function closeDrawer(){ drawerStudentId=null; $('drawerMask').classList.remove('show'); $('drawer').classList.remove('show'); }
 function editFromDrawer(){ if(drawerStudentId) openStudentModal(drawerStudentId); }
-function openPfModal(){ $('p_title').value=''; $('p_url').value=''; openModalEl('pfModal'); }
+function openPfModal(){ $('p_title').value=''; $('p_url').value=''; pendingPf=null; $('pfChip').style.display='none'; const pf=$('p_file'); if(pf) pf.value=''; openModalEl('pfModal'); }
 async function persistStudentObj(s){
   if(MODE==='feishu'){ await api('/api/save',{type:'student',id:s.id,data:s}); await refreshData(); }
   else save();
@@ -768,7 +829,8 @@ async function savePortfolio(){
   if(!t){ toast('请填写作品名称'); return; }
   const s=stuById(drawerStudentId); if(!s) return;
   s.portfolio=s.portfolio||[];
-  s.portfolio.push({id:uid(),title:t,url:$('p_url').value.trim()});
+  const purl=$('p_url').value.trim();
+  s.portfolio.push({id:uid(),title:t,url:purl,name: pendingPf?pendingPf.name:''});
   try{
     await persistStudentObj(s);
     closeModal('pfModal'); openDrawer(drawerStudentId); renderStudents(); toast('已添加作品');

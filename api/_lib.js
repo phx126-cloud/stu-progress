@@ -86,7 +86,7 @@ const TABLE_DEFS = {
     ['姓名', 1], ['联系方式', 1], ['学校', 1], ['专业', 1], ['目标岗位', 1],
     ['辅导阶段', 3, ['咨询中', '辅导中', '求职中', '已上岸', '暂停']],
     ['简历状态', 3, ['待优化', '优化中', '已定稿']],
-    ['简历链接', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1]
+    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1]
   ],
   '职位': [
     ['公司', 1], ['职位名称', 1], ['城市', 1], ['薪资', 1], ['渠道', 1],
@@ -112,17 +112,18 @@ async function ensureTables() {
   for (const name of Object.keys(TABLE_DEFS)) {
     const def = TABLE_DEFS[name];
     let tid = existing[name];
-    // 校验已存在表的字段类型，类型不符则删除重建（常见于手动建表时把文本字段设成了数字）
+    let fdefs = null;
+    // 已有的表：校验字段类型，类型不符则删除重建（常见于手动建表时把文本字段设成了数字）
     if (tid) {
       try {
-        const fdefs = await getTableFields(tid);
+        fdefs = await getTableFields(tid);
         const expected = {};
         def.forEach(([fn, type]) => { expected[fn] = Number(type); });
         const bad = fdefs.find(f => expected[f.field_name] !== undefined && Number(f.type) !== expected[f.field_name]);
         if (bad) {
           console.warn(`表[${name}]字段[${bad.field_name}]类型不符（实际${bad.type}/期望${expected[bad.field_name]}），删除重建`);
           await feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}`);
-          tid = null;
+          tid = null; fdefs = null;
         }
       } catch (e) { /* 无法校验则保留原表 */ }
     }
@@ -133,6 +134,17 @@ async function ensureTables() {
       }));
       const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
       tid = c.table_id;
+    } else if (fdefs) {
+      // 已有表补齐缺失字段（支持 schema 演进，如新增简历文件名列）
+      const have = new Set(fdefs.map(f => f.field_name));
+      for (const [fn, type, opts] of def) {
+        if (!have.has(fn)) {
+          await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/fields`, {
+            field_name: fn, type,
+            ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
+          });
+        }
+      }
     }
     ids[name] = tid;
   }
@@ -171,10 +183,10 @@ function stuFrom(r) {
     major: txt(f['专业']), target: txt(f['目标岗位']),
     stage: txt(f['辅导阶段']) || '咨询中',
     resumeStatus: txt(f['简历状态']) || '待优化',
-    resumeUrl: txt(f['简历链接']), notes: txt(f['备注']), createdAt: txt(f['加入日期']),
+    resumeUrl: txt(f['简历链接']), resumeName: txt(f['简历文件名']), notes: txt(f['备注']), createdAt: txt(f['加入日期']),
     portfolio: txt(f['作品集']).split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => {
-      const [title, ...rest] = line.split('|');
-      return { id: 'pf' + i, title: (title || '').trim(), url: rest.join('|').trim() };
+      const parts = line.split('|');
+      return { id: 'pf' + i, title: (parts[0] || '').trim(), url: (parts[1] || '').trim(), name: (parts[2] || '').trim() };
     })
   };
 }
@@ -183,7 +195,8 @@ function stuFields(d) {
     '姓名': d.name || '', '联系方式': d.contact || '', '学校': d.school || '', '专业': d.major || '',
     '目标岗位': d.target || '', '辅导阶段': d.stage || '咨询中', '简历状态': d.resumeStatus || '待优化',
     '简历链接': d.resumeUrl || '',
-    '作品集': (d.portfolio || []).map(p => p.url ? `${p.title}|${p.url}` : p.title).join('\n'),
+    '简历文件名': d.resumeName || '',
+    '作品集': (d.portfolio || []).map(p => [p.title, p.url, p.name].filter(Boolean).join('|')).join('\n'),
     '备注': d.notes || '', '加入日期': d.createdAt || today()
   };
 }
@@ -342,4 +355,4 @@ async function handleApi(req, res) {
   }
 }
 
-module.exports = { handleApi };
+module.exports = { handleApi, isAuthed, json };
