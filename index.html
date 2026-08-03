@@ -120,6 +120,24 @@ tbody tr:hover{background:#fafbff}
 .kb-card .next{margin-top:7px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;padding:4px 8px;border-radius:6px;line-height:1.4}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
 
+/* 学员卡片视图 & 视图切换 */
+.view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0}
+.vt-btn{border:none;background:#fff;padding:7px 12px;font-size:13px;color:var(--text2);cursor:pointer}
+.vt-btn.active{background:var(--primary);color:#fff}
+.stu-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px}
+.stu-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;transition:.15s}
+.stu-card:hover{border-color:var(--primary);box-shadow:0 4px 12px rgba(79,70,229,.1)}
+.stu-card .top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.stu-card .nm{font-weight:600;font-size:14px;line-height:1.2}
+.stu-card .sc{font-size:12px;color:var(--text2);margin-top:2px}
+.stu-card .tg{font-size:13px;color:var(--text);margin:6px 0 10px}
+.stu-card .row{display:flex;justify-content:space-between;align-items:center;margin-top:9px;font-size:12.5px;color:var(--text2)}
+.stu-card .acts{display:flex;gap:6px;margin-top:12px;border-top:1px solid #f0f1f4;padding-top:10px}
+.stu-card .acts .btn-ghost{flex:1;text-align:center;padding:6px 0;font-size:12.5px}
+
+/* 看板卡片内阶段下拉 */
+.kb-select{width:100%;margin-top:8px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text2);cursor:pointer}
+
 /* ===== 弹窗 ===== */
 .modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow-y:auto}
 .modal-mask.show{display:flex}
@@ -220,8 +238,9 @@ tbody tr:hover{background:#fafbff}
           <option value="">全部简历状态</option>
           <option>待优化</option><option>优化中</option><option>已定稿</option>
         </select>
+        <div class="view-toggle"><button class="vt-btn active" data-v="table" onclick="setStuView('table')">▦ 表格</button><button class="vt-btn" data-v="card" onclick="setStuView('card')">▤ 卡片</button></div>
       </div>
-      <div class="card" style="overflow-x:auto"><div id="studentTable"></div></div>
+      <div class="card" style="overflow-x:auto;padding:14px"><div id="studentTable"></div></div>
     </section>
 
     <!-- 职位库 -->
@@ -544,12 +563,14 @@ function renderDashboard(){
   const n=new Date();
   $('dashDate').textContent=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日 星期${w[n.getDay()]} · 今天也要帮学员往前推一步`;
   const activeApps=db.apps.filter(a=>a.stage!=='未通过');
+  const weekAgo=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
   const stats=[
     {ico:'🧑‍🎓',lbl:'学员总数',num:db.students.length,color:'#6366f1'},
-    {ico:'🔥',lbl:'求职中学员',num:db.students.filter(s=>s.stage==='求职中').length,color:'#d97706'},
+    {ico:'🔥',lbl:'在辅导中',num:db.students.filter(s=>s.stage!=='已上岸'&&s.stage!=='暂停').length,color:'#d97706'},
     {ico:'🏆',lbl:'已上岸',num:db.students.filter(s=>s.stage==='已上岸').length,color:'#059669'},
-    {ico:'📮',lbl:'投递总数',num:db.apps.length,color:'#2563eb'},
-    {ico:'🎤',lbl:'面试进行中',num:db.apps.filter(a=>a.stage==='面试').length,color:'#7c3aed'},
+    {ico:'🆕',lbl:'本周新增',num:db.students.filter(s=>(s.createdAt||'')>=weekAgo).length,color:'#2563eb'},
+    {ico:'📮',lbl:'投递总数',num:db.apps.length,color:'#0891b2'},
+    {ico:'🎤',lbl:'面试中',num:db.apps.filter(a=>a.stage==='面试').length,color:'#7c3aed'},
     {ico:'✉️',lbl:'Offer 数',num:db.apps.filter(a=>a.stage==='Offer').length,color:'#059669'}
   ];
   $('statsGrid').innerHTML=stats.map(s=>`<div class="stat-card"><span class="ico">${s.ico}</span><div class="num" style="color:${s.color}">${s.num}</div><div class="lbl">${s.lbl}</div></div>`).join('');
@@ -568,6 +589,12 @@ function renderDashboard(){
 }
 
 /* ================= 学员管理 ================= */
+let stuView='table';
+function setStuView(v){
+  stuView=v;
+  document.querySelectorAll('.vt-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+  renderStudents();
+}
 function renderStudents(){
   const kw=($('stuSearch').value||'').trim().toLowerCase();
   const st=$('stuStageFilter').value, rs=$('stuResumeFilter').value;
@@ -578,6 +605,25 @@ function renderStudents(){
     return true;
   });
   if(!list.length){ $('studentTable').innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>暂无学员，点击右上角「新增学员」开始</div>'; return; }
+  if(stuView==='card'){
+    $('studentTable').innerHTML=`<div class="stu-cards">${list.map(s=>{
+      const myApps=appsOfStudent(s);
+      const appCount=myApps.length;
+      const offerCount=myApps.filter(a=>a.stage==='Offer').length;
+      return `<div class="stu-card">
+        <div class="top">${avatarOf(s)}<div><div class="nm">${esc(s.name)}</div><div class="sc">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div>
+        <div class="tg">🎯 ${esc(s.target||'-')}</div>
+        <div class="row"><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span><span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>
+        <div class="row"><span>${appCount?`投递 ${appCount} 个${offerCount?` · Offer×${offerCount}`:''}`:'暂未投递'}</span><span>${(s.portfolio||[]).length?'🗂 '+s.portfolio.length+' 项':'—'}</span></div>
+        <div class="acts">
+          <button class="btn-ghost" onclick="openDrawer('${s.id}')">详情</button>
+          <button class="btn-ghost" onclick="openStudentModal('${s.id}')">编辑</button>
+          <button class="btn-ghost danger" onclick="deleteStudent('${s.id}')">删除</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+    return;
+  }
   $('studentTable').innerHTML=`<table><thead><tr>
     <th>学员</th><th>目标岗位</th><th>阶段</th><th>简历</th><th>作品集</th><th>投递</th><th>操作</th>
   </tr></thead><tbody>${list.map(s=>{
@@ -793,6 +839,7 @@ function renderPipeline(){
           <div class="stu">${avatarOf(s,22)}${esc(s.name)}</div>
           <div class="job">${esc(j.company)}<br>${esc(j.title)}</div>
           <div class="meta"><span>${a.appliedAt?'📅 '+a.appliedAt.slice(5):''}</span><span>${esc(j.city||'')}</span></div>
+          <select class="kb-select" onclick="event.stopPropagation()" onchange="changeStage('${a.id}',this.value)">${STAGES.map(st=>`<option ${st===a.stage?'selected':''}>${st}</option>`).join('')}</select>
           ${a.next?`<div class="next">⏭ ${esc(a.next)}</div>`:''}
         </div>`;
       }).join('')}</div>
@@ -831,6 +878,22 @@ function bindDragDrop(){
       }
     });
   });
+}
+async function changeStage(id,newStage){
+  const app=db.apps.find(a=>a.id===id);
+  if(!app||app.stage===newStage) return;
+  const oldStage=app.stage;
+  app.stage=newStage; app.updatedAt=today();
+  if(newStage==='已投递'&&!app.appliedAt) app.appliedAt=today();
+  renderPipeline();
+  try{
+    if(MODE==='feishu'){ await api('/api/save',{type:'app',id:app.id,data:app}); await refreshData(); renderPipeline(); }
+    else save();
+    toast(`已更新为「${newStage}」`);
+  }catch(err){
+    app.stage=oldStage; renderPipeline();
+    toast('同步失败：'+err.message);
+  }
 }
 
 let editingAppId=null;
