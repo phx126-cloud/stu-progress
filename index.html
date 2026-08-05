@@ -283,6 +283,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
     <div class="sidebar-footer">
       <div id="syncStatus" style="margin-bottom:10px;line-height:1.6">⚪️ 本地模式</div>
       <button id="migrateBtn" style="display:none" onclick="migrateLocal()">☁️ 迁移本地数据到飞书</button>
+      <button id="repairBtn" style="display:none" onclick="repairTablesUI()">🛠️ 修复表结构（列缺失/类型不符）</button>
       <button onclick="exportCSV()">📊 导出 Excel(CSV)</button>
       <button onclick="exportData()">⬇️ 导出数据备份</button>
       <button id="delLockBtn" style="display:none" onclick="toggleDelLock()">🔒 点击解锁删除权限</button>
@@ -600,6 +601,27 @@ async function refreshData(){
   if(j.ok){ db=j.data; lastSync=new Date(); deleteProtected=!!j.deleteProtected; updateSyncUI(); updateDelBtn(); }
   else throw new Error(j.error);
 }
+// 保存后只把改动的那一条合并进本地数据，避免整表重新拉取（省 3 次请求、反应更快）
+function mergeSaved(type, id, obj){
+  const merged={id, ...obj};
+  if(type==='student'){
+    const i=db.students.findIndex(s=>s.id===id);
+    if(i>=0) db.students[i]={...db.students[i],...merged}; else db.students.push(merged);
+  } else if(type==='job'){
+    const i=db.jobs.findIndex(j=>j.id===id);
+    if(i>=0) db.jobs[i]={...db.jobs[i],...merged}; else db.jobs.push(merged);
+  } else if(type==='app'){
+    const i=db.apps.findIndex(a=>a.id===id);
+    if(i>=0) db.apps[i]={...db.apps[i],...merged}; else db.apps.push(merged);
+  }
+  lastSync=new Date(); updateSyncUI();
+}
+async function feishuSave(type, id, data, derived){
+  const j=await api('/api/save',{type,id,data});
+  const newId=id||j.id;
+  mergeSaved(type, newId, Object.assign({}, data, derived||{}));
+  return newId;
+}
 function updateSyncUI(){
   const el=$('syncStatus');
   if(MODE==='feishu'){
@@ -607,11 +629,13 @@ function updateSyncUI(){
     el.className='feishu';
     el.innerHTML=`<span class="sdot"></span><div>已连接飞书表格<br><span style="color:var(--text2);font-weight:400">自动同步 · 上次 ${t}</span></div>`;
     $('migrateBtn').style.display='';
+    $('repairBtn').style.display='';
     $('storageHint').textContent='数据存储于飞书多维表格';
   }else{
     el.className='';
     el.innerHTML='<span class="sdot"></span><div>本地模式<br><span style="color:var(--text2);font-weight:400">未连接飞书</span></div>';
     $('migrateBtn').style.display='none';
+    $('repairBtn').style.display='none';
     $('storageHint').textContent='数据保存在本机浏览器中';
   }
 }
@@ -683,6 +707,15 @@ async function migrateLocal(){
     await refreshData(); rerenderCurrent();
     toast('迁移完成 ✅');
   }catch(e){ toast('迁移失败：'+e.message); }
+}
+async function repairTablesUI(){
+  if(MODE!=='feishu'){ toast('仅飞书模式需要修复表结构'); return; }
+  if(!confirm('重新检查并修复飞书表格的列（补齐缺失列、修正字段类型）？\n仅在你改动过表格结构或新增/编辑报错时使用。')) return;
+  try{
+    await api('/api/repair',{});
+    await refreshData(); rerenderCurrent();
+    toast('表结构已修复 ✅');
+  }catch(e){ toast('修复失败：'+e.message); }
 }
 
 /* ================= 主题 & 导航 ================= */
@@ -886,8 +919,7 @@ async function saveStudent(){
     if(MODE==='feishu'){
       const old=editingStudentId?stuById(editingStudentId):null;
       const full={...(old||{portfolio:[],createdAt:today()}),...data};
-      await api('/api/save',{type:'student',id:editingStudentId,data:full});
-      await refreshData();
+      await feishuSave('student', editingStudentId, full);
     }else{
       if(editingStudentId) Object.assign(stuById(editingStudentId),data);
       else db.students.push({id:uid(),portfolio:[],createdAt:today(),...data});
@@ -996,7 +1028,7 @@ function closeDrawer(){ drawerStudentId=null; $('drawerMask').classList.remove('
 function editFromDrawer(){ if(drawerStudentId) openStudentModal(drawerStudentId); }
 function openPfModal(){ $('p_title').value=''; $('p_url').value=''; pendingPf=null; $('pfChip').style.display='none'; const pf=$('p_file'); if(pf) pf.value=''; openModalEl('pfModal'); }
 async function persistStudentObj(s){
-  if(MODE==='feishu'){ await api('/api/save',{type:'student',id:s.id,data:s}); await refreshData(); }
+  if(MODE==='feishu'){ await feishuSave('student', s.id, s); }
   else save();
 }
 async function savePortfolio(){
@@ -1064,8 +1096,7 @@ async function saveJob(){
   const data={company,title,city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim()};
   try{
     if(MODE==='feishu'){
-      await api('/api/save',{type:'job',id:editingJobId,data});
-      await refreshData();
+      await feishuSave('job', editingJobId, data);
     }else{
       if(editingJobId) Object.assign(jobById(editingJobId),data);
       else db.jobs.push({id:uid(),...data});
@@ -1139,7 +1170,7 @@ function bindDragDrop(){
         if(newStage==='已投递'&&!app.appliedAt) app.appliedAt=today();
         renderPipeline();
         try{
-          if(MODE==='feishu'){ await api('/api/save',{type:'app',id:app.id,data:app}); await refreshData(); renderPipeline(); }
+          if(MODE==='feishu'){ await feishuSave('app', app.id, app); renderPipeline(); }
           else save();
           toast(`已更新为「${newStage}」`);
         }catch(err){
@@ -1158,7 +1189,7 @@ async function changeStage(id,newStage){
   if(newStage==='已投递'&&!app.appliedAt) app.appliedAt=today();
   renderPipeline();
   try{
-    if(MODE==='feishu'){ await api('/api/save',{type:'app',id:app.id,data:app}); await refreshData(); renderPipeline(); }
+    if(MODE==='feishu'){ await feishuSave('app', app.id, app); renderPipeline(); }
     else save();
     toast(`已更新为「${newStage}」`);
   }catch(err){
@@ -1191,8 +1222,8 @@ async function saveApp(){
   try{
     if(!editingAppId&&db.apps.some(a=>a.studentId===data.studentId&&a.jobId===data.jobId)&&!confirm('该学员已投递过此职位，仍要再创建一条记录吗？')) return;
     if(MODE==='feishu'){
-      await api('/api/save',{type:'app',id:editingAppId,data});
-      await refreshData();
+      const s=stuById(data.studentId), jb=jobById(data.jobId);
+      await feishuSave('app', editingAppId, data, { studentName: s?s.name:'', company: jb?jb.company:'', jobTitle: jb?jb.title:'' });
     }else{
       if(editingAppId) Object.assign(db.apps.find(a=>a.id===editingAppId),data);
       else db.apps.push({id:uid(),...data});

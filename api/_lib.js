@@ -130,8 +130,31 @@ async function getTableFields(tid) {
   return d.items || [];
 }
 let tableIds = null;
+// 热路径：只确认表存在并返回 table_id，不校验字段类型（字段校验很慢且表结构已稳定）
 async function ensureTables() {
   if (tableIds) return tableIds;
+  const d = await feishu('GET', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables?page_size=100`);
+  const existing = {};
+  (d.items || []).forEach(t => existing[t.name] = t.table_id);
+  const ids = {};
+  for (const name of Object.keys(TABLE_DEFS)) {
+    let tid = existing[name];
+    if (!tid) {
+      const def = TABLE_DEFS[name];
+      const fields = def.map(([fn, type, opts]) => ({
+        field_name: fn, type,
+        ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
+      }));
+      const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
+      tid = c.table_id;
+    }
+    ids[name] = tid;
+  }
+  tableIds = ids;
+  return ids;
+}
+// 仅在需要调整表结构（补列 / 修字段类型）时手动调用，平时不跑，避免无谓的飞书请求
+async function repairTables() {
   const d = await feishu('GET', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables?page_size=100`);
   const existing = {};
   (d.items || []).forEach(t => existing[t.name] = t.table_id);
@@ -140,20 +163,6 @@ async function ensureTables() {
     const def = TABLE_DEFS[name];
     let tid = existing[name];
     let fdefs = null;
-    // 已有的表：校验字段类型，类型不符则删除重建（常见于手动建表时把文本字段设成了数字）
-    if (tid) {
-      try {
-        fdefs = await getTableFields(tid);
-        const expected = {};
-        def.forEach(([fn, type]) => { expected[fn] = Number(type); });
-        const bad = fdefs.find(f => expected[f.field_name] !== undefined && Number(f.type) !== expected[f.field_name]);
-        if (bad) {
-          console.warn(`表[${name}]字段[${bad.field_name}]类型不符（实际${bad.type}/期望${expected[bad.field_name]}），删除重建`);
-          await feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}`);
-          tid = null; fdefs = null;
-        }
-      } catch (e) { /* 无法校验则保留原表 */ }
-    }
     if (!tid) {
       const fields = def.map(([fn, type, opts]) => ({
         field_name: fn, type,
@@ -161,15 +170,30 @@ async function ensureTables() {
       }));
       const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
       tid = c.table_id;
-    } else if (fdefs) {
-      // 已有表补齐缺失字段（支持 schema 演进，如新增简历文件名列）
-      const have = new Set(fdefs.map(f => f.field_name));
-      for (const [fn, type, opts] of def) {
-        if (!have.has(fn)) {
-          await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/fields`, {
-            field_name: fn, type,
-            ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
-          });
+    } else {
+      fdefs = await getTableFields(tid);
+      const expected = {};
+      def.forEach(([fn, type]) => { expected[fn] = Number(type); });
+      const bad = fdefs.find(f => expected[f.field_name] !== undefined && Number(f.type) !== expected[f.field_name]);
+      if (bad) {
+        console.warn(`表[${name}]字段[${bad.field_name}]类型不符，删除重建`);
+        await feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}`);
+        const fields = def.map(([fn, type, opts]) => ({
+          field_name: fn, type,
+          ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
+        }));
+        const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables`, { table: { name, fields } });
+        tid = c.table_id; fdefs = null;
+      }
+      if (fdefs) {
+        const have = new Set(fdefs.map(f => f.field_name));
+        for (const [fn, type, opts] of def) {
+          if (!have.has(fn)) {
+            await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/fields`, {
+              field_name: fn, type,
+              ...(opts ? { property: { options: opts.map(o => ({ name: o })) } } : {})
+            });
+          }
         }
       }
     }
@@ -289,9 +313,9 @@ async function saveEntity({ type, id, data }) {
     }
     fields = appFields(data, names);
   } else throw new Error('未知类型');
-  if (id) await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields });
-  else await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
-  return {};
+  if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); return { id }; }
+  const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
+  return { id: c.record.record_id };
 }
 
 async function deleteEntity({ type, id }) {
@@ -428,7 +452,8 @@ async function handleApi(req, res) {
     if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
 
     if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
-    if (p === '/api/save' && req.method === 'POST') { await saveEntity(await readBody(req)); return json(res, { ok: true }); }
+    if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
+    if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);
       if (DELETE_PROTECTED && b.deletePassword !== DELETE_PASSWORD) {
