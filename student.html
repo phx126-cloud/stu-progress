@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学员端 · 我的求职进度</title>
+<style>
+:root{
+  --primary:#4f46e5; --primary-light:#eef2ff; --primary-dark:#4338ca;
+  --bg:#f6f7fb; --card:#ffffff; --border:#e5e7eb; --text:#1f2937; --text2:#6b7280;
+  --green:#059669; --green-bg:#ecfdf5; --amber:#d97706; --amber-bg:#fffbeb;
+  --red:#dc2626; --red-bg:#fef2f2; --blue:#2563eb; --blue-bg:#eff6ff;
+  --purple:#7c3aed; --purple-bg:#f5f3ff; --gray-bg:#f3f4f6;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 10px 30px rgba(0,0,0,.12);
+  --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+body{background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
+button{cursor:pointer;font-size:14px}
+input,select,textarea{font-size:14px;color:var(--text)}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.btn{padding:9px 16px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--text);font-weight:500;transition:.15s}
+.btn:hover{border-color:#c7cbd4;background:#fafafa}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+.btn-sm{padding:5px 10px;font-size:12.5px;border-radius:7px}
+.btn-ghost{border:none;background:none;color:var(--primary);padding:5px 8px;font-size:13px}
+.btn-ghost:hover{background:var(--primary-light);border-radius:6px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 0 14px;margin-bottom:6px;background:linear-gradient(var(--bg) 72%,rgba(246,247,251,0))}
+.crumb{font-size:16px;font-weight:800;color:var(--text);flex-shrink:0}
+.crumb small{font-weight:400;color:var(--text2);font-size:13px;margin-left:8px}
+
+.tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
+.tag-gray{background:var(--gray-bg);color:var(--text2)}
+.tag-blue{background:var(--blue-bg);color:var(--blue)}
+.tag-green{background:var(--green-bg);color:var(--green)}
+.tag-amber{background:var(--amber-bg);color:var(--amber)}
+.tag-red{background:var(--red-bg);color:var(--red)}
+.tag-purple{background:var(--purple-bg);color:var(--purple)}
+.tag-indigo{background:var(--primary-light);color:var(--primary)}
+.avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;flex-shrink:0}
+
+.sec-title{font-size:13px;font-weight:700;color:var(--text2);margin:0 0 12px;text-transform:uppercase;letter-spacing:.4px;display:flex;justify-content:space-between;align-items:center}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;font-size:13.5px}
+.info-grid .k{color:var(--text2);font-size:12px;margin-bottom:2px}
+.pf-item,.app-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;gap:10px}
+.pf-item .t{font-weight:500;font-size:13.5px}
+.pf-item .u{font-size:12px;color:var(--text2);word-break:break-all}
+.upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.file-chip{display:flex;align-items:center;gap:8px;margin-top:8px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:9px;padding:7px 10px;font-size:13px}
+.file-chip a{color:#4338ca;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .chip-x{border:none;background:transparent;color:#ef4444;cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+.file-chip .chip-x:hover{color:#b91c1c}
+
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-grid .full{grid-column:1/-1}
+.fld label{display:block;font-size:12.5px;color:var(--text2);margin-bottom:5px;font-weight:500}
+.fld input,.fld select,.fld textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;outline:none;background:#fff}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--primary)}
+
+.modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow-y:auto}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;box-shadow:var(--shadow-lg);animation:pop .18s ease}
+@keyframes pop{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-head{padding:18px 22px;border-bottom:1px solid #f0f1f4;display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-size:16px}
+.modal-close{border:none;background:none;font-size:20px;color:var(--text2);line-height:1}
+.modal-body{padding:20px 22px;max-height:64vh;overflow-y:auto}
+.modal-foot{padding:14px 22px;border-top:1px solid #f0f1f4;display:flex;justify-content:flex-end;gap:10px}
+
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#111827;color:#fff;padding:10px 20px;border-radius:99px;font-size:13.5px;z-index:200;opacity:0;transition:.25s;box-shadow:var(--shadow-lg)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* 登录页 */
+.login-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-card{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-lg);padding:36px 32px;width:360px;max-width:92vw;text-align:center}
+.login-card .logo-icon{width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;margin:0 auto 14px;box-shadow:0 6px 14px rgba(99,102,241,.35)}
+.login-card h2{font-size:20px;margin-bottom:4px}
+.login-card>p{color:var(--text2);font-size:13px;margin-bottom:20px}
+.login-card input{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;margin-bottom:12px;outline:none}
+.login-card input:focus{border-color:var(--primary)}
+.login-card .btn{width:100%;padding:11px;font-size:15px;margin-bottom:12px}
+.login-card .err{color:var(--red);font-size:12.5px;min-height:16px;margin-bottom:8px}
+.login-card .back{font-size:13px;color:var(--text2)}
+
+/* 顶部品牌条 */
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);z-index:300}
+
+@media(max-width:820px){.form-grid{grid-template-columns:1fr}.login-card{width:100%}}
+
+/* ===== 暗色主题 ===== */
+[data-theme="dark"]{
+  --bg:#0f1115; --card:#181b21; --border:#2a2f3a; --text:#e6e8ed; --text2:#98a1b3;
+  --gray-bg:#1c2027; --shadow:0 1px 3px rgba(0,0,0,.45); --shadow-lg:0 12px 34px rgba(0,0,0,.6);
+}
+[data-theme="dark"] body{background:var(--bg)}
+[data-theme="dark"] .card,.modal,.pf-item,.app-item{background:var(--card);border-color:var(--border)}
+[data-theme="dark"] .topbar{background:linear-gradient(var(--bg) 72%,rgba(15,17,21,0))}
+[data-theme="dark"] input,.fld input,.fld select,.fld textarea{background:#0f1218;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .file-chip{background:#1d2440;border-color:#3b4a8a}
+[data-theme="dark"] .file-chip a{color:#a5b4fc}
+[data-theme="dark"] .btn:not(.btn-primary){background:#1c2027}
+[data-theme="dark"] .btn:not(.btn-primary):hover{background:#232833}
+[data-theme="dark"] .tag-gray{background:#262b34}
+[data-theme="dark"] .sec-title{color:var(--text2)}
+</style>
+</head>
+<body>
+
+<!-- 登录视图 -->
+<div id="loginView" class="login-wrap">
+  <div class="login-card">
+    <div class="logo-icon">🎯</div>
+    <h2>学员端登录</h2>
+    <p>用你的手机号 + 登录密码进入</p>
+    <input id="phone" placeholder="手机号" inputmode="numeric">
+    <input id="pwd" type="password" placeholder="登录密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="err" id="loginErr"></div>
+    <button class="btn btn-primary" onclick="doLogin()">登录</button>
+    <a class="back" href="/">← 返回管理端</a>
+  </div>
+</div>
+
+<!-- 主视图 -->
+<div id="mainView" class="app" style="display:none">
+  <main class="main" style="margin-left:0;max-width:920px">
+    <div class="topbar">
+      <div class="crumb">我的求职进度 <small id="helloName"></small></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-sm" id="themeBtn" onclick="toggleTheme()">🌙 深色</button>
+        <button class="btn btn-sm" onclick="logout()">🚪 退出</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-bottom:18px">
+      <div id="profileBox"></div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-bottom:18px">
+      <div class="sec-title">简历 / 作品集</div>
+      <div id="resumeBox"></div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-bottom:18px">
+      <div class="sec-title">我的投递 <button class="btn btn-sm btn-primary" onclick="openAppModal()">+ 新增投递</button></div>
+      <div id="appBox"></div>
+    </div>
+  </main>
+</div>
+
+<!-- 新增投递弹窗 -->
+<div class="modal-mask" id="appModal">
+  <div class="modal">
+    <div class="modal-head"><h3>新增投递</h3><button class="modal-close" onclick="closeAppModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld"><label>公司 *</label><input id="a_company" placeholder="如：字节跳动"></div>
+        <div class="fld"><label>职位名称 *</label><input id="a_jobTitle" placeholder="如：产品经理"></div>
+        <div class="fld"><label>投递日期</label><input id="a_appliedAt" type="date"></div>
+        <div class="fld"><label>下一步行动</label><input id="a_next" placeholder="如：等待笔试通知"></div>
+      </div>
+      <div class="fld full" style="margin-top:14px"><label>备注</label><textarea id="a_notes" placeholder="可选"></textarea></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeAppModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveApp()">提交</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const STU_STAGE_TAG = { '咨询中': 'tag-gray', '辅导中': 'tag-blue', '求职中': 'tag-amber', '已上岸': 'tag-green', '暂停': 'tag-gray' };
+const RESUME_TAG = { '待优化': 'tag-gray', '优化中': 'tag-amber', '已定稿': 'tag-green' };
+const APP_TAG = { '待投递': 'tag-gray', '已投递': 'tag-blue', '面试': 'tag-amber', 'Offer': 'tag-green', '未通过': 'tag-red' };
+
+let me = null;
+let dark = localStorage.getItem('stu_theme') === 'dark';
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  const b = $('themeBtn'); if (b) b.textContent = dark ? '☀️ 浅色' : '🌙 深色';
+}
+function toggleTheme() { dark = !dark; localStorage.setItem('stu_theme', dark ? 'dark' : ''); applyTheme(); }
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+async function stuApi(url, body) {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) { if (j.needLogin) { logout(); } throw new Error(j.error || '操作失败'); }
+  return j;
+}
+async function stuGet(url) {
+  const r = await fetch(url, { method: 'GET' });
+  const j = await r.json().catch(() => ({}));
+  if (!j.ok) { if (j.needLogin) { logout(); } throw new Error(j.error || '加载失败'); }
+  return j;
+}
+
+async function doLogin() {
+  const phone = $('phone').value.trim(), pwd = $('pwd').value.trim();
+  if (!phone || !pwd) { $('loginErr').textContent = '请输入手机号和密码'; return; }
+  $('loginErr').textContent = '';
+  try {
+    await stuApi('/api/student-login', { phone, password: pwd });
+    await loadMe();
+    showMain();
+  } catch (e) { $('loginErr').textContent = e.message; }
+}
+function logout() {
+  fetch('/api/student-logout', { method: 'POST' }).finally(() => { location.reload(); });
+}
+function showMain() {
+  $('loginView').style.display = 'none';
+  $('mainView').style.display = '';
+  renderMe();
+}
+async function loadMe() {
+  const j = await stuGet('/api/student/me');
+  me = j; renderMe();
+}
+
+function renderMe() {
+  if (!me) return;
+  const s = me.student || {};
+  $('helloName').textContent = s.name ? '，' + s.name : '';
+  const av = (s.name || '?').slice(0, 1);
+  $('profileBox').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="avatar" style="width:52px;height:52px;font-size:22px;background:var(--primary)">${esc(av)}</div>
+      <div><div style="font-size:20px;font-weight:700">${esc(s.name)}</div>
+      <div style="color:var(--text2);margin-top:3px">${esc(s.school || '')}${s.major ? ' · ' + esc(s.major) : ''}</div></div>
+    </div>
+    <div class="info-grid" style="margin-top:16px">
+      <div><div class="k">目标岗位</div>${esc(s.target || '-')}</div>
+      <div><div class="k">辅导阶段</div><span class="tag ${STU_STAGE_TAG[s.stage] || 'tag-gray'}">${esc(s.stage)}</span></div>
+      <div><div class="k">简历状态</div><span class="tag ${RESUME_TAG[s.resumeStatus] || 'tag-gray'}">${esc(s.resumeStatus || '待优化')}</span></div>
+      <div><div class="k">联系方式</div>${esc(s.contact || '-')}</div>
+    </div>`;
+  $('resumeBox').innerHTML = resumeHTML(s);
+  $('appBox').innerHTML = appsHTML(me.apps || []);
+}
+function resumeHTML(s) {
+  let h = '';
+  h += '<div style="margin-bottom:14px"><div class="k" style="font-size:12.5px;color:var(--text2);margin-bottom:6px">简历文件</div>';
+  if (s.resumeName) {
+    h += `<div class="file-chip"><a href="${esc(s.resumeUrl)}" target="_blank">📄 ${esc(s.resumeName)}</a><button class="chip-x" onclick="clearResume()" title="移除">×</button></div>`;
+  } else {
+    h += '<div style="color:var(--text2);font-size:13px">尚未上传</div>';
+  }
+  h += `<div class="upload-row" style="margin-top:8px"><input type="file" id="r_file" style="display:none" onchange="onResumeFile(this)"><button class="btn btn-sm" onclick="$('r_file').click()">📎 上传 / 更换简历</button></div>`;
+  h += '<div style="margin-top:18px"><div class="k" style="font-size:12.5px;color:var(--text2);margin-bottom:6px">作品集</div>';
+  const pf = s.portfolio || [];
+  if (pf.length) {
+    h += pf.map(p => `<div class="pf-item"><div style="flex:1;min-width:0"><div class="t">🗂 ${esc(p.title)}</div>${p.url ? `<div class="u"><a href="${esc(p.url)}" target="_blank">${esc(p.url)}</a></div>` : ''}</div>${p.url ? `<button class="btn-ghost" onclick="window.open('${esc(p.url)}','_blank')">查看</button>` : ''}</div>`).join('');
+  } else h += '<div style="color:var(--text2);font-size:13px">暂无作品集</div>';
+  h += `<div class="upload-row" style="margin-top:8px"><input type="file" id="pf_file" style="display:none" onchange="onPfFile(this)"><button class="btn btn-sm" onclick="$('pf_file').click()">📎 上传作品集</button><input id="pf_title" placeholder="作品名称" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;width:160px;background:#fff;color:var(--text)"></div>`;
+  h += '</div>';
+  return h;
+}
+function appsHTML(apps) {
+  if (!apps.length) return '<div style="color:var(--text2);padding:8px 0">还没有投递记录，点右上角「+ 新增投递」添加吧。</div>';
+  return apps.slice().sort((a, b) => (a.appliedAt < b.appliedAt ? 1 : -1)).map(a => `
+    <div class="app-item">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600">${esc(a.company)} · ${esc(a.jobTitle)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px">${a.appliedAt ? '📅 ' + esc(a.appliedAt) : ''}${a.next ? ' · ⏭ ' + esc(a.next) : ''}</div>
+      </div>
+      <span class="tag ${APP_TAG[a.stage] || 'tag-gray'}">${esc(a.stage)}</span>
+    </div>`).join('');
+}
+
+async function onResumeFile(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  try {
+    const res = await fetch('/api/upload?name=' + encodeURIComponent(f.name) + '&kind=resume', { method: 'POST', body: f });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || '上传失败');
+    await stuApi('/api/student/save', { resumeUrl: d.url, resumeName: d.name || f.name });
+    toast('简历已上传'); await loadMe();
+  } catch (e) { toast('失败：' + e.message); }
+}
+function clearResume() {
+  stuApi('/api/student/save', { resumeUrl: '', resumeName: '' }).then(loadMe).catch(e => toast(e.message));
+}
+async function onPfFile(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  const title = $('pf_title').value.trim() || f.name;
+  try {
+    const res = await fetch('/api/upload?name=' + encodeURIComponent(f.name) + '&kind=portfolio', { method: 'POST', body: f });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || '上传失败');
+    const pf = (me.student.portfolio || []).slice();
+    pf.push({ id: 'pf' + Date.now(), title, url: d.url, name: d.name || f.name });
+    await stuApi('/api/student/save', { portfolio: pf });
+    toast('作品集已上传'); await loadMe();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+function openAppModal() {
+  $('a_company').value = ''; $('a_jobTitle').value = '';
+  $('a_appliedAt').value = new Date().toISOString().slice(0, 10);
+  $('a_next').value = ''; $('a_notes').value = '';
+  $('appModal').classList.add('show');
+}
+function closeAppModal() { $('appModal').classList.remove('show'); }
+async function saveApp() {
+  const company = $('a_company').value.trim(), jobTitle = $('a_jobTitle').value.trim();
+  if (!company || !jobTitle) { toast('请填写公司和职位'); return; }
+  try {
+    await stuApi('/api/student/app', { company, jobTitle, appliedAt: $('a_appliedAt').value, next: $('a_next').value.trim(), notes: $('a_notes').value.trim() });
+    closeAppModal(); toast('投递已提交'); await loadMe();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+(async function init() {
+  applyTheme();
+  try {
+    const j = await stuGet('/api/student/me');
+    me = j; showMain();
+  } catch (e) { /* 未登录，显示登录页 */ }
+})();
+</script>
+</body>
+</html>

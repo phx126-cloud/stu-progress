@@ -3,13 +3,13 @@
  * 文件存在 Vercel 云端，与飞书/浏览器解耦，关电脑、换设备都能访问。
  */
 const { put } = require('@vercel/blob');
-const { isAuthed, json } = require('./_lib');
+const { isAuthed, isStudentAuthed, json } = require('./_lib');
 
 const MAX = 12 * 1024 * 1024; // 12MB 上限
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return json(res, { error: 'Method Not Allowed' }, 405);
-  if (!isAuthed(req)) return json(res, { error: '未登录或登录已过期', needLogin: true }, 401);
+  if (!isAuthed(req) && !isStudentAuthed(req)) return json(res, { error: '未登录或登录已过期', needLogin: true }, 401);
 
   // 兼容两种 Vercel Blob 认证方式：
   // 1) 旧方式：创建 Blob Store 时自动注入 BLOB_READ_WRITE_TOKEN

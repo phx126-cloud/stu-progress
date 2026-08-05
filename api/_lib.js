@@ -46,6 +46,31 @@ function isAuthed(req) {
   return true;
 }
 
+/* ---------------- 学员端无状态会话（独立 Cookie） ---------------- */
+const STU_COOKIE = 'stu_session';
+function signStu(payload) { return crypto.createHmac('sha256', (ACCESS_PASSWORD || 'x') + ':stu').update(payload).digest('hex'); }
+function issueStuCookie(req, studentId) {
+  const exp = Date.now() + SESSION_TTL;
+  const payload = `${studentId}:${exp}`;
+  const sig = signStu(payload);
+  let c = `${STU_COOKIE}=${encodeURIComponent(payload)}.${sig}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL / 1000)}`;
+  if ((req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https') c += '; Secure';
+  return c;
+}
+function isStudentAuthed(req) {
+  if (!AUTH_ENABLED) return null;
+  const c = parseCookies(req)[STU_COOKIE];
+  if (!c) return null;
+  const idx = c.lastIndexOf('.');
+  if (idx < 0) return null;
+  const payload = c.slice(0, idx), sig = c.slice(idx + 1);
+  if (signStu(payload) !== sig) return null;
+  const parts = payload.split(':');
+  if (parts.length < 2) return null;
+  if (parseInt(parts[1], 10) < Date.now()) return null;
+  return decodeURIComponent(parts[0]);
+}
+
 function configured() {
   return !!(FEISHU_APP_ID && FEISHU_APP_SECRET && FEISHU_APP_TOKEN) &&
     !/填入|你的|xxxx/.test([FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_APP_TOKEN].join(''));
@@ -88,7 +113,7 @@ const TABLE_DEFS = {
     ['姓名', 1], ['联系方式', 1], ['学校', 1], ['专业', 1], ['目标岗位', 1],
     ['辅导阶段', 3, ['咨询中', '辅导中', '求职中', '已上岸', '暂停']],
     ['简历状态', 3, ['待优化', '优化中', '已定稿']],
-    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1]
+    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1], ['学员密码', 1]
   ],
   '职位': [
     ['公司', 1], ['职位名称', 1], ['城市', 1], ['薪资', 1], ['渠道', 1],
@@ -186,6 +211,7 @@ function stuFrom(r) {
     stage: txt(f['辅导阶段']) || '咨询中',
     resumeStatus: txt(f['简历状态']) || '待优化',
     resumeUrl: txt(f['简历链接']), resumeName: txt(f['简历文件名']), notes: txt(f['备注']), createdAt: txt(f['加入日期']),
+    password: txt(f['学员密码']),
     portfolio: txt(f['作品集']).split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split('|');
       return { id: 'pf' + i, title: (parts[0] || '').trim(), url: (parts[1] || '').trim(), name: (parts[2] || '').trim() };
@@ -199,7 +225,7 @@ function stuFields(d) {
     '简历链接': d.resumeUrl || '',
     '简历文件名': d.resumeName || '',
     '作品集': (d.portfolio || []).map(p => [p.title, p.url, p.name].filter(Boolean).join('|')).join('\n'),
-    '备注': d.notes || '', '加入日期': d.createdAt || today()
+    '备注': d.notes || '', '加入日期': d.createdAt || today(), '学员密码': d.password || ''
   };
 }
 function jobFrom(r) {
@@ -346,7 +372,62 @@ async function handleApi(req, res) {
       return json(res, { ok: true });
     }
     if (!configured()) return json(res, { ok: false, error: '尚未配置飞书应用：请在 Vercel 环境变量填写 FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_APP_TOKEN' });
+
+    // ===== 学员端（独立鉴权，不受管理员登录态影响） =====
+    if (p === '/api/student-login' && req.method === 'POST') {
+      const b = await readBody(req);
+      const phone = (b.phone || '').trim();
+      const pwd = (b.password || '').trim();
+      if (!phone || !pwd) return json(res, { ok: false, error: '请输入手机号和密码' }, 400);
+      const ids = await ensureTables();
+      const records = await allRecords(ids['学员']);
+      const match = records.find(r => txt(r.fields['联系方式']) === phone && (r.fields['学员密码'] || '') === pwd);
+      if (!match) return json(res, { ok: false, error: '手机号或密码错误' }, 401);
+      res.setHeader('Set-Cookie', issueStuCookie(req, match.record_id));
+      return json(res, { ok: true });
+    }
+    if (p === '/api/student-logout' && req.method === 'POST') {
+      res.setHeader('Set-Cookie', `${STU_COOKIE}=; Path=/; HttpOnly; Max-Age=0`);
+      return json(res, { ok: true });
+    }
+
     if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+
+    // 学员本人数据 / 操作（需学员登录态）
+    if (p === '/api/student/me' && req.method === 'GET') {
+      const sid = isStudentAuthed(req);
+      if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+      const ids = await ensureTables();
+      const r = await getRecord(ids['学员'], sid);
+      const student = stuFrom(r);
+      const apps = (await allRecords(ids['投递'])).map(appFrom).filter(a => a.studentName === student.name);
+      return json(res, { ok: true, student, apps });
+    }
+    if (p === '/api/student/app' && req.method === 'POST') {
+      const sid = isStudentAuthed(req);
+      if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+      const b = await readBody(req);
+      const ids = await ensureTables();
+      const r = await getRecord(ids['学员'], sid);
+      const studentName = txt(r.fields['姓名']);
+      const names = { studentName, company: b.company || '', jobTitle: b.jobTitle || '' };
+      if (b.jobId) { try { const jr = await getRecord(ids['职位'], b.jobId); names.company = txt(jr.fields['公司']); names.jobTitle = txt(jr.fields['职位名称']); } catch (e) {} }
+      await saveEntity({ type: 'app', id: null, data: { studentId: sid, studentName, company: names.company, jobTitle: names.jobTitle, stage: '已投递', appliedAt: b.appliedAt || today(), next: b.next || '', notes: b.notes || '' } });
+      return json(res, { ok: true });
+    }
+    if (p === '/api/student/save' && req.method === 'POST') {
+      const sid = isStudentAuthed(req);
+      if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+      const b = await readBody(req);
+      const allowed = ['resumeUrl', 'resumeName', 'resumeStatus', 'portfolio'];
+      const patch = {}; allowed.forEach(k => { if (k in b) patch[k] = b[k]; });
+      const ids = await ensureTables();
+      const cur = stuFrom(await getRecord(ids['学员'], sid));
+      await saveEntity({ type: 'student', id: sid, data: { ...cur, ...patch } });
+      return json(res, { ok: true });
+    }
+
+    if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/save' && req.method === 'POST') { await saveEntity(await readBody(req)); return json(res, { ok: true }); }
     if (p === '/api/delete' && req.method === 'POST') {
@@ -364,4 +445,4 @@ async function handleApi(req, res) {
   }
 }
 
-module.exports = { handleApi, isAuthed, json };
+module.exports = { handleApi, isAuthed, isStudentAuthed, json };
