@@ -156,6 +156,68 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 #syncStatus .sdot{width:9px;height:9px;border-radius:50%;background:#9ca3af;flex-shrink:0}
 #syncStatus.feishu .sdot{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
 
+/* ===== 暗色主题 ===== */
+[data-theme="dark"]{
+  --bg:#0f1115; --card:#181b21; --border:#2a2f3a; --text:#e6e8ed; --text2:#98a1b3;
+  --gray-bg:#1c2027; --shadow:0 1px 3px rgba(0,0,0,.45); --shadow-lg:0 12px 34px rgba(0,0,0,.6);
+}
+[data-theme="dark"] body{background:var(--bg)}
+[data-theme="dark"] .sidebar{background:#14171c}
+[data-theme="dark"] .stat-card,.panel,.card,.modal,.stu-card,.kb-card{background:var(--card);border-color:var(--border)}
+[data-theme="dark"] .kb-col{background:#1c2027}
+[data-theme="dark"] .drawer{background:var(--card)}
+[data-theme="dark"] input,.fld input,.fld select,.fld textarea,select.filter,.search-box input{background:#0f1218;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] th{background:#1a1e25;color:var(--text2)}
+[data-theme="dark"] tbody tr:hover{background:#1c2027}
+[data-theme="dark"] .file-chip{background:#1d2440;border-color:#3b4a8a}
+[data-theme="dark"] .file-chip a{color:#a5b4fc}
+[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger){background:#1c2027}
+[data-theme="dark"] .btn:not(.btn-primary):not(.btn-danger):hover{background:#232833}
+[data-theme="dark"] .nav-item:hover{background:var(--gray-bg)}
+[data-theme="dark"] .nav-item.active{background:rgba(99,102,241,.22);color:#c7d2fe}
+[data-theme="dark"] .pf-item,.app-item{background:var(--gray-bg)}
+[data-theme="dark"] .drawer-mask,.modal-mask{background:rgba(0,0,0,.6)}
+[data-theme="dark"] .tag-gray{background:#262b34}
+[data-theme="dark"] .info-grid>div,.drawer-body .sec-title~div{color:var(--text)}
+
+/* ===== 顶部栏 / 全局搜索 ===== */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 0 14px;margin-bottom:6px;background:linear-gradient(var(--bg) 72%,rgba(246,247,251,0))}
+[data-theme="dark"] .topbar{background:linear-gradient(var(--bg) 72%,rgba(15,17,21,0))}
+.crumb{font-size:16px;font-weight:800;color:var(--text);flex-shrink:0}
+.crumb small{font-weight:400;color:var(--text2);font-size:12px;margin-left:8px}
+.global-search{position:relative;flex:1;max-width:440px}
+.gs-input{width:100%;padding:10px 12px 10px 36px;border:1px solid var(--border);border-radius:11px;background:#fff;outline:none}
+[data-theme="dark"] .gs-input{background:#0f1218}
+.gs-input:focus{border-color:var(--primary)}
+.gs-results{position:absolute;top:48px;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);max-height:360px;overflow:auto;display:none;z-index:60}
+.gs-results.show{display:block}
+[data-theme="dark"] .gs-results{background:var(--card)}
+.gs-group{padding:7px 14px;font-size:11px;font-weight:700;color:var(--text2);background:var(--gray-bg);letter-spacing:.3px}
+.gs-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13.5px}
+.gs-item:last-child{border-bottom:none}
+.gs-item:hover{background:var(--primary-light)}
+.gs-item .gx{font-size:12px;color:var(--text2);margin-left:auto;max-width:50%;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-empty{padding:16px;text-align:center;color:var(--text2);font-size:13px}
+
+/* ===== 待跟进提醒 ===== */
+.followup{background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #fed7aa;border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;display:none;gap:16px;align-items:stretch}
+[data-theme="dark"] .followup{background:#241c14;border-color:#5c4422}
+.fu-left{flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-right:16px;border-right:1px dashed #fdba74;min-width:92px}
+.fu-num{font-size:30px;font-weight:800;color:#ea580c;line-height:1}
+.fu-lbl{font-size:12px;color:#9a3412;font-weight:600;margin-top:4px}
+[data-theme="dark"] .fu-lbl{color:#fbbf24}
+.fu-list{flex:1;display:flex;gap:10px;overflow-x:auto;padding-bottom:3px}
+.fu-list::-webkit-scrollbar{height:6px}
+.fu-list::-webkit-scrollbar-thumb{background:#fdba74;border-radius:9px}
+.fu-item{flex-shrink:0;background:#fff;border:1px solid #fde0c4;border-radius:11px;padding:10px 13px;min-width:206px;cursor:pointer;transition:.15s}
+.fu-item:hover{border-color:#f97316;box-shadow:0 4px 12px rgba(249,115,22,.16)}
+[data-theme="dark"] .fu-item{background:#1c2027;border-color:#5c4422}
+.fu-item .fn{font-weight:700;font-size:13.5px}
+.fu-item .fd{font-size:12px;color:var(--text2);margin-top:3px}
+.fu-item .ft{font-size:11.5px;color:#ea580c;margin-top:5px;font-weight:600}
+.fu-item .fd2{font-size:11.5px;color:#b45309;margin-top:2px}
+[data-theme="dark"] .fu-item .fd2{color:#fbbf24}
+
 /* ===== 弹窗 ===== */
 .modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow-y:auto}
 .modal-mask.show{display:flex}
@@ -218,8 +280,10 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
     <div class="sidebar-footer">
       <div id="syncStatus" style="margin-bottom:10px;line-height:1.6">⚪️ 本地模式</div>
       <button id="migrateBtn" style="display:none" onclick="migrateLocal()">☁️ 迁移本地数据到飞书</button>
+      <button onclick="exportCSV()">📊 导出 Excel(CSV)</button>
       <button onclick="exportData()">⬇️ 导出数据备份</button>
       <button onclick="document.getElementById('importFile').click()">⬆️ 导入数据</button>
+      <button onclick="toggleTheme()">🌓 切换深色 / 浅色</button>
       <button onclick="doLogout()">🚪 退出登录</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(this)">
       <span id="storageHint">数据保存在本机浏览器中</span>
@@ -228,12 +292,20 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 
   <!-- 主区域 -->
   <main class="main">
+    <div class="topbar">
+      <div class="crumb" id="crumb">仪表盘<small id="crumbSub"></small></div>
+      <div class="global-search">
+        <input class="gs-input" id="gsInput" placeholder="🔍 搜索学员 / 职位 / 公司…" oninput="globalSearch()" onfocus="globalSearch()">
+        <div class="gs-results" id="gsResults"></div>
+      </div>
+    </div>
     <!-- 仪表盘 -->
     <section id="view-dashboard">
       <div class="page-head">
         <div><div class="page-title">仪表盘</div><div class="page-sub" id="dashDate"></div></div>
       </div>
       <div class="stats-grid" id="statsGrid"></div>
+      <div class="followup" id="followUp"></div>
       <div class="dash-grid">
         <div class="panel">
           <div class="panel-head">📈 投递漏斗</div>
@@ -563,6 +635,7 @@ async function doLogout(){
   if(!$('loginModal').classList.contains('show')) toast('已退出登录');
 }
 async function init(){
+  applyTheme(localStorage.getItem('theme')||'light');
   let r;
   try{ r=await fetch('/api/data',{cache:'no-store',credentials:'same-origin'}); }catch(e){ r=null; }
   if(r && r.status===401){ showLogin(); return; }
@@ -591,7 +664,15 @@ async function migrateLocal(){
   }catch(e){ toast('迁移失败：'+e.message); }
 }
 
-/* ================= 导航 ================= */
+/* ================= 主题 & 导航 ================= */
+function applyTheme(t){ document.documentElement.setAttribute('data-theme',t); try{localStorage.setItem('theme',t);}catch(e){} }
+function toggleTheme(){ const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'; applyTheme(cur); toast(cur==='dark'?'已切换到深色模式':'已切换到浅色模式'); }
+const CRUMB={
+  dashboard:['仪表盘','今天也要帮学员往前推一步'],
+  students:['学员管理','学员信息、简历与作品集'],
+  jobs:['职位库','收集与维护可推荐的职位'],
+  pipeline:['投递进度','拖拽卡片即可更新阶段']
+};
 const views=['dashboard','students','jobs','pipeline'];
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click',()=>switchView(btn.dataset.view));
@@ -599,6 +680,7 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
 function switchView(v){
   views.forEach(x=>$('view-'+x).style.display = x===v?'':'none');
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  if(CRUMB[v]) $('crumb').innerHTML = `${CRUMB[v][0]}<small>${CRUMB[v][1]}</small>`;
   if(v==='dashboard') renderDashboard();
   if(v==='students') renderStudents();
   if(v==='jobs') renderJobs();
@@ -643,6 +725,30 @@ function renderDashboard(){
     const s=appStu(a),j=appJobInfo(a);
     return `<div class="activity-item"><span class="tag ${STAGE_TAG[a.stage]}">${a.stage}</span><div style="flex:1"><b>${esc(s.name)}</b> · ${esc(j.company)}｜${esc(j.title)}${a.next?`<div style="color:var(--amber);font-size:12px;margin-top:2px">⏭ ${esc(a.next)}</div>`:''}</div><span class="activity-time">${a.updatedAt||''}</span></div>`;
   }).join(''):'<div class="empty">暂无动态</div>';
+  renderFollowUp();
+}
+function renderFollowUp(){
+  const weekAgoTs=Date.now()-7*86400000;
+  const items=db.apps.filter(a=>{
+    if(a.stage==='未通过'||a.stage==='Offer') return false;
+    const hasNext=(a.next||'').trim().length>0;
+    const stale=!a.updatedAt || new Date(a.updatedAt.replace(/-/g,'/')).getTime()<weekAgoTs;
+    return hasNext || stale;
+  }).sort((a,b)=>(a.updatedAt||'').localeCompare(b.updatedAt||'')).slice(0,14);
+  const el=$('followUp');
+  if(!items.length){ el.style.display='none'; return; }
+  el.style.display='flex';
+  el.innerHTML=`<div class="fu-left"><div class="fu-num">${items.length}</div><div class="fu-lbl">待跟进</div></div><div class="fu-list">${items.map(a=>{
+    const s=appStu(a),j=appJobInfo(a);
+    const stale=!a.updatedAt||new Date(a.updatedAt.replace(/-/g,'/')).getTime()<weekAgoTs;
+    const days=a.updatedAt?Math.max(0,Math.round((Date.now()-new Date(a.updatedAt.replace(/-/g,'/')).getTime())/86400000)):null;
+    return `<div class="fu-item" onclick="gsGo('app','${a.id}')">
+      <div class="fn">${esc(s.name)} · ${esc(j.company)}</div>
+      <div class="fd">${esc(j.title)}｜当前：${a.stage}</div>
+      ${a.next?`<div class="ft">⏭ ${esc(a.next)}</div>`:''}
+      ${stale?`<div class="fd2">⏱ ${days} 天未更新</div>`:''}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 /* ================= 学员管理 ================= */
@@ -1071,6 +1177,43 @@ function importData(input){
     input.value='';
   };
   r.readAsText(f);
+}
+
+/* ================= 全局搜索 ================= */
+function globalSearch(){
+  const q=($('gsInput').value||'').trim().toLowerCase();
+  const box=$('gsResults');
+  if(!q){ box.classList.remove('show'); box.innerHTML=''; return; }
+  const stu=db.students.filter(s=>[s.name,s.school,s.major,s.target].join(' ').toLowerCase().includes(q)).slice(0,6);
+  const jobs=db.jobs.filter(j=>[j.company,j.title,j.city].join(' ').toLowerCase().includes(q)).slice(0,6);
+  const apps=db.apps.filter(a=>{ const s=appStu(a),j=appJobInfo(a); return [s.name,j.company,j.title].join(' ').toLowerCase().includes(q); }).slice(0,6);
+  let html='';
+  if(stu.length) html+=`<div class="gs-group">学员</div>`+stu.map(s=>`<div class="gs-item" onclick="gsGo('student','${s.id}')">${avatarOf(s,24)}<div style="flex:1;min-width:0">${esc(s.name)}<div class="gx">${esc(s.target||'')}</div></div></div>`).join('');
+  if(jobs.length) html+=`<div class="gs-group">职位</div>`+jobs.map(j=>`<div class="gs-item" onclick="gsGo('job','${j.id}')">💼<div style="flex:1;min-width:0">${esc(j.company)}<div class="gx">${esc(j.title)}</div></div></div>`).join('');
+  if(apps.length) html+=`<div class="gs-group">投递</div>`+apps.map(a=>{const s=appStu(a),j=appJobInfo(a);return `<div class="gs-item" onclick="gsGo('app','${a.id}')">🚀<div style="flex:1;min-width:0">${esc(s.name)} → ${esc(j.company)}<div class="gx">${esc(j.title)}</div></div></div>`;}).join('');
+  if(!html) html='<div class="gs-empty">没有匹配结果</div>';
+  box.innerHTML=html; box.classList.add('show');
+}
+function gsGo(type,id){
+  $('gsResults').classList.remove('show'); $('gsInput').value='';
+  if(type==='student'){ switchView('students'); openDrawer(id); }
+  else if(type==='job'){ switchView('jobs'); }
+  else if(type==='app'){ switchView('pipeline'); openAppModal(id); }
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.global-search')){ const b=$('gsResults'); if(b) b.classList.remove('show'); } });
+
+/* ================= 导出 Excel(CSV) ================= */
+function csvCell(v){ v=v==null?'':String(v); if(/[",\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
+function exportCSV(){
+  const rows=[['姓名','联系方式','学校','专业','目标岗位','阶段','简历状态','简历链接','加入时间','投递数','Offer数','备注']];
+  db.students.forEach(s=>{
+    const myApps=appsOfStudent(s);
+    rows.push([s.name,s.contact,s.school,s.major,s.target,s.stage,s.resumeStatus||'待优化',s.resumeUrl||'',s.createdAt||'',myApps.length,myApps.filter(a=>a.stage==='Offer').length,s.notes||'']);
+  });
+  const csv='﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`学员名单_${today()}.csv`; a.click();
+  toast('已导出 Excel(CSV)');
 }
 
 /* ================= 初始化 ================= */
