@@ -391,9 +391,7 @@ async function handleApi(req, res) {
       return json(res, { ok: true });
     }
 
-    if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
-
-    // 学员本人数据 / 操作（需学员登录态）
+    // 学员本人数据 / 操作（需学员登录态，且不受管理员登录态影响）
     if (p === '/api/student/me' && req.method === 'GET') {
       const sid = isStudentAuthed(req);
       if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
@@ -427,7 +425,8 @@ async function handleApi(req, res) {
       return json(res, { ok: true });
     }
 
-    if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
+    if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+
     if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/save' && req.method === 'POST') { await saveEntity(await readBody(req)); return json(res, { ok: true }); }
     if (p === '/api/delete' && req.method === 'POST') {

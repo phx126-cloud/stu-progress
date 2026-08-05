@@ -1,13 +1,13 @@
 # Vercel 部署指南（免费 · 不用信用卡 · 关电脑也能用）
 
-> 代码已经改造成 Vercel 兼容版（`api/` 下是 Serverless Function，前端 `index.html` 自动托管）。
+> 代码已经改造成 Vercel 兼容版（`api/` 下是 Serverless Function，前端 `index.html` 自动托管）。  
 > 本指南教你把它部署到 Vercel，**全程不用绑信用卡、不花钱**，部署完拿到固定网址 `xxx.vercel.app`，关电脑也照常用。
 
 ---
 
 ## 第 1 步：注册 Vercel
 
-1. 打开 **https://vercel.com**
+1. 打开 **<https://vercel.com>**
 2. 右上角 **「Sign Up」** → 选 **「Continue with GitHub」**（用你之前的 GitHub 账号一键登录）
 3. 授权后进入 Vercel 控制台
 
@@ -31,12 +31,12 @@
 
 往下滚到 **「Environment Variables」**，逐行添加这 **4 个**（Vercel 不需要 PORT，平台自己管端口）：
 
-| 名称 | 值 | 从哪里拿 |
-|------|-----|---------|
-| `FEISHU_APP_ID` | 你的 `cli_` 开头那串 | 飞书开放平台 → 你的应用 → 凭证页 → App ID |
-| `FEISHU_APP_SECRET` | 你的 App Secret | 同一页面 → App Secret（点查看复制）|
-| `FEISHU_APP_TOKEN` | 你的 `X` 开头那串 | 飞书多维表格网址 `/base/` 与 `?` 之间复制 |
-| `ACCESS_PASSWORD` | `3a3ed5efb1c88e27` | 网页访问口令（和在本地用的一样）|
+| 名称                  | 值                  | 从哪里拿                         |
+| ------------------- | ------------------ | ---------------------------- |
+| `FEISHU_APP_ID`     | 你的 `cli_` 开头那串     | 飞书开放平台 → 你的应用 → 凭证页 → App ID |
+| `FEISHU_APP_SECRET` | 你的 App Secret      | 同一页面 → App Secret（点查看复制）     |
+| `FEISHU_APP_TOKEN`  | 你的 `X` 开头那串        | 飞书多维表格网址 `/base/` 与 `?` 之间复制 |
+| `ACCESS_PASSWORD`   | `3a3ed5efb1c88e27` | 网页访问口令（和在本地用的一样）             |
 
 点击 **「Add」** 把每行加进去，4 个都加完。
 
@@ -48,7 +48,7 @@
 
 1. 滚到最底部点 **「Deploy」**
 2. 等 **1~2 分钟** 构建（首次会连飞书自动建好「学员/职位/投递」三张表）
-3. 完成后显示 **「Congratulations」**，并给出一个网址，形如：
+3. 完成后显示 **「Congratulations」**，并给出一个网址，形如：  
    **`https://stu-progress.vercel.app`**
 
 > 这个网址**永久固定不变**，关机、合盖、关电脑都不影响。
@@ -77,14 +77,14 @@
 
 ## 常见问题
 
-**Q：部署后打开显示「尚未配置飞书应用」？**
+**Q：部署后打开显示「尚未配置飞书应用」？**  
 A：第 3 步飞书值没填/填错。回去 Vercel 项目 → Settings → Environment Variables 核对三个飞书值，Save 后重新 Deploy。
 
-**Q：网页能开但数据空白？**
+**Q：网页能开但数据空白？**  
 A：`FEISHU_APP_TOKEN` 不对（不是你那个 `X` 开头的表格），或飞书应用没开通 `bitable:app` 权限并发布版本。回飞书开放平台确认。
 
-**Q：要不要绑信用卡？**
+**Q：要不要绑信用卡？**  
 A：不需要。Hobby 免费层直接 GitHub 登录即可，零信用卡。
 
-**Q：想要自己的域名（如 `app.你的名字.com`）？**
+**Q：想要自己的域名（如 `app.你的名字.com`）？**  
 A：Vercel 里项目 → Settings → Domains，添加你的域名并按提示在域名商处加一条 CNAME 解析即可，免费。
