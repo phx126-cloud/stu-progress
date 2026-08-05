@@ -4,6 +4,11 @@
     "api/*.js": { "maxDuration": 30 }
   },
   "rewrites": [
+    { "source": "/api/student-login", "destination": "/api/student.js" },
+    { "source": "/api/student-logout", "destination": "/api/student.js" },
+    { "source": "/api/student/me", "destination": "/api/student.js" },
+    { "source": "/api/student/app", "destination": "/api/student.js" },
+    { "source": "/api/student/save", "destination": "/api/student.js" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
