@@ -203,7 +203,8 @@ async function stuApi(url, body) {
 async function stuGet(url) {
   const r = await fetch(url, { method: 'GET' });
   const j = await r.json().catch(() => ({}));
-  if (!j.ok) { if (j.needLogin) { logout(); } throw new Error(j.error || '加载失败'); }
+  // 注意：未登录时不应自动 logout（会触发 reload 死循环），交给上层静默处理
+  if (!j.ok) throw new Error(j.error || '加载失败');
   return j;
 }
 
