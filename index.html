@@ -166,7 +166,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 [data-theme="dark"] .stat-card,.panel,.card,.modal,.stu-card,.kb-card{background:var(--card);border-color:var(--border)}
 [data-theme="dark"] .kb-col{background:#1c2027}
 [data-theme="dark"] .drawer{background:var(--card)}
-[data-theme="dark"] input,.fld input,.fld select,.fld textarea,select.filter,.search-box input{background:#0f1218;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] input,[data-theme="dark"] .fld input,[data-theme="dark"] .fld select,[data-theme="dark"] .fld textarea,[data-theme="dark"] select.filter,[data-theme="dark"] .search-box input{background:#1c2027;color:var(--text);border-color:var(--border)}
 [data-theme="dark"] th{background:#1a1e25;color:var(--text2)}
 [data-theme="dark"] tbody tr:hover{background:#1c2027}
 [data-theme="dark"] .file-chip{background:#1d2440;border-color:#3b4a8a}
@@ -179,6 +179,9 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 [data-theme="dark"] .drawer-mask,.modal-mask{background:rgba(0,0,0,.6)}
 [data-theme="dark"] .tag-gray{background:#262b34}
 [data-theme="dark"] .info-grid>div,.drawer-body .sec-title~div{color:var(--text)}
+[data-theme="dark"] .modal-head,[data-theme="dark"] .modal-foot,[data-theme="dark"] .drawer-head{border-color:var(--border)}
+::placeholder{color:#9ca3af}
+[data-theme="dark"] ::placeholder{color:#d1d5db}
 
 /* ===== 顶部栏 / 全局搜索 ===== */
 .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 0 14px;margin-bottom:6px;background:linear-gradient(var(--bg) 72%,rgba(246,247,251,0))}

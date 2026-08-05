@@ -99,9 +99,13 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
   --gray-bg:#1c2027; --shadow:0 1px 3px rgba(0,0,0,.45); --shadow-lg:0 12px 34px rgba(0,0,0,.6);
 }
 [data-theme="dark"] body{background:var(--bg)}
-[data-theme="dark"] .card,.modal,.pf-item,.app-item{background:var(--card);border-color:var(--border)}
+[data-theme="dark"] .card,[data-theme="dark"] .modal,[data-theme="dark"] .pf-item,[data-theme="dark"] .app-item{background:var(--card);border-color:var(--border)}
 [data-theme="dark"] .topbar{background:linear-gradient(var(--bg) 72%,rgba(15,17,21,0))}
-[data-theme="dark"] input,.fld input,.fld select,.fld textarea{background:#0f1218;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] input,[data-theme="dark"] .fld input,[data-theme="dark"] .fld select,[data-theme="dark"] .fld textarea{background:#1c2027;color:var(--text);border-color:var(--border)}
+[data-theme="dark"] .modal-head,[data-theme="dark"] .modal-foot{border-color:var(--border)}
+[data-theme="dark"] .login-card{background:var(--card);border-color:var(--border)}
+::placeholder{color:#9ca3af}
+[data-theme="dark"] ::placeholder{color:#d1d5db}
 [data-theme="dark"] .file-chip{background:#1d2440;border-color:#3b4a8a}
 [data-theme="dark"] .file-chip a{color:#a5b4fc}
 [data-theme="dark"] .btn:not(.btn-primary){background:#1c2027}
@@ -128,7 +132,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 
 <!-- 主视图 -->
 <div id="mainView" class="app" style="display:none">
-  <main class="main" style="margin-left:0;max-width:920px">
+  <main class="main" style="margin:0 auto;max-width:920px;padding:0 16px">
     <div class="topbar">
       <div class="crumb">我的求职进度 <small id="helloName"></small></div>
       <div style="display:flex;gap:10px">
