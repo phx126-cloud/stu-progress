@@ -282,6 +282,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
       <button id="migrateBtn" style="display:none" onclick="migrateLocal()">☁️ 迁移本地数据到飞书</button>
       <button onclick="exportCSV()">📊 导出 Excel(CSV)</button>
       <button onclick="exportData()">⬇️ 导出数据备份</button>
+      <button id="delLockBtn" style="display:none" onclick="toggleDelLock()">🔒 点击解锁删除权限</button>
       <button onclick="document.getElementById('importFile').click()">⬆️ 导入数据</button>
       <button onclick="toggleTheme()">🌓 切换深色 / 浅色</button>
       <button onclick="doLogout()">🚪 退出登录</button>
@@ -503,6 +504,21 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
   </div>
 </div>
 
+<div class="modal-mask" id="delPwdModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><h3>🔐 删除权限验证</h3><button class="modal-close" onclick="cancelDelPwd()">✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin:0 0 14px">删除数据需要输入<b>删除密码</b>；新增与编辑无需密码。</p>
+      <div class="fld"><label>删除密码</label><input id="delPwdInput" type="password" placeholder="请输入删除密码" onkeydown="if(event.key==='Enter')confirmDelPwd()"></div>
+      <div id="delPwdErr" style="color:#dc2626;font-size:12.5px;min-height:16px;margin-top:4px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost" onclick="cancelDelPwd()">取消</button>
+      <button class="btn btn-danger" onclick="confirmDelPwd()">确认删除</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ================= 数据层 ================= */
 const LS_KEY = 'coach_pms_v1';
@@ -515,6 +531,8 @@ const AVATAR_COLORS = ['#6366f1','#ec4899','#14b8a6','#f59e0b','#8b5cf6','#0ea5e
 
 let db = {students:[],jobs:[],apps:[]};
 let MODE = 'local';        // 'local' 浏览器存储 ｜ 'feishu' 飞书多维表格
+let delPwd = '';           // 已解锁的删除密码（内存态，刷新后失效）
+let deleteProtected = false; // 后端是否启用了删除密码
 let lastSync = null;       // 最近一次同步时间
 let dragging = false;      // 拖拽中暂停自动刷新
 const POLL_MS = 15000;     // 自动同步间隔（15 秒）
@@ -566,7 +584,7 @@ document.querySelectorAll('.modal-mask').forEach(m=>m.addEventListener('click',e
 async function api(url,body){
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json();
-  if(!j.ok) throw new Error(j.error||'操作失败');
+  if(!j.ok){ const e=new Error(j.error||'操作失败'); e.needDeletePwd=!!j.needDeletePwd; throw e; }
   return j;
 }
 async function fetchRemote(){
@@ -576,7 +594,7 @@ async function fetchRemote(){
 async function refreshData(){
   if(MODE!=='feishu') return;
   const j=await fetchRemote();
-  if(j.ok){ db=j.data; lastSync=new Date(); updateSyncUI(); }
+  if(j.ok){ db=j.data; lastSync=new Date(); deleteProtected=!!j.deleteProtected; updateSyncUI(); updateDelBtn(); }
   else throw new Error(j.error);
 }
 function updateSyncUI(){
@@ -641,7 +659,7 @@ async function init(){
   if(r && r.status===401){ showLogin(); return; }
   try{
     const j=r?await r.json():{};
-    if(j.ok){ MODE='feishu'; db=j.data; lastSync=new Date(); startPolling(); }
+    if(j.ok){ MODE='feishu'; db=j.data; lastSync=new Date(); deleteProtected=!!j.deleteProtected; startPolling(); updateDelBtn(); }
     else{ MODE='local'; db=load(); console.warn('飞书未就绪：',j.error); toast(j.error); }
   }catch(e){ MODE='local'; db=load(); }
   updateSyncUI();
@@ -877,13 +895,61 @@ async function saveStudent(){
     if(drawerStudentId&&stuById(drawerStudentId)) openDrawer(drawerStudentId);
   }catch(e){ toast('保存失败：'+e.message); }
 }
+/* ================= 删除密码（删除需密码，新增/编辑无需） ================= */
+let _delResolve=null,_delReject=null;
+function ensureDelPwd(){
+  return new Promise((resolve,reject)=>{
+    if(!deleteProtected) return resolve();        // 未启用删除密码则直接放行
+    if(delPwd) return resolve();                   // 本次会话已解锁
+    _delResolve=resolve; _delReject=reject;
+    const inp=$('delPwdInput'); inp.value=''; $('delPwdErr').textContent='';
+    openModalEl('delPwdModal');
+    setTimeout(()=>{ try{ inp.focus(); }catch(e){} },50);
+  });
+}
+function confirmDelPwd(){
+  const v=$('delPwdInput').value;
+  if(!v){ $('delPwdErr').textContent='请输入删除密码'; return; }
+  delPwd=v; closeModal('delPwdModal');
+  const r=_delResolve; _delResolve=null; if(r) r();
+}
+function cancelDelPwd(){
+  const r=_delReject; _delReject=null; _delResolve=null;
+  closeModal('delPwdModal');
+  if(r) r(new Error('已取消删除'));
+}
+function toggleDelLock(){
+  if(delPwd){ delPwd=''; updateDelBtn(); toast('已锁定删除权限'); }
+  else ensureDelPwd().then(updateDelBtn);
+}
+function updateDelBtn(){
+  const b=$('delLockBtn'); if(!b) return;
+  if(!deleteProtected){ b.style.display='none'; return; }
+  b.style.display='';
+  b.innerHTML = delPwd ? '🔓 删除已授权（点击锁定）' : '🔒 点击解锁删除权限';
+}
+// 带删除密码的删除（云端模式）；密码错误自动清空并重新索取，最多重试 1 次
+async function deleteWithPwd(payload){
+  for(let attempt=0;attempt<2;attempt++){
+    await ensureDelPwd();
+    try{
+      await api('/api/delete',{...payload,deletePassword:delPwd});
+      return;
+    }catch(e){
+      if(e.needDeletePwd){ delPwd=''; updateDelBtn(); continue; }
+      throw e;
+    }
+  }
+  throw new Error('删除密码错误');
+}
+
 async function deleteStudent(id){
   const s=stuById(id);
   const n=appsOfStudent(s).length;
   if(!confirm(`确定删除学员「${s.name}」？${n?`\n其名下 ${n} 条投递记录也将一并删除。`:''}`)) return;
   try{
     if(MODE==='feishu'){
-      await api('/api/delete',{type:'student',id});
+      await deleteWithPwd({type:'student',id});
       await refreshData();
     }else{
       db.students=db.students.filter(x=>x.id!==id);
@@ -891,7 +957,7 @@ async function deleteStudent(id){
       save();
     }
     renderStudents(); toast('已删除');
-  }catch(e){ toast('删除失败：'+e.message); }
+  }catch(e){ if(!e.needDeletePwd) toast('删除失败：'+e.message); }
 }
 
 /* ===== 学员详情抽屉 ===== */
@@ -1012,7 +1078,7 @@ async function deleteJob(id){
   if(!confirm(`确定删除职位「${j.company}｜${j.title}」？${n?`\n关联的 ${n} 条投递记录也将一并删除。`:''}`)) return;
   try{
     if(MODE==='feishu'){
-      await api('/api/delete',{type:'job',id});
+      await deleteWithPwd({type:'job',id});
       await refreshData();
     }else{
       db.jobs=db.jobs.filter(x=>x.id!==id);
@@ -1020,7 +1086,7 @@ async function deleteJob(id){
       save();
     }
     renderJobs(); toast('已删除');
-  }catch(e){ toast('删除失败：'+e.message); }
+  }catch(e){ if(!e.needDeletePwd) toast('删除失败：'+e.message); }
 }
 
 /* ================= 投递进度看板 ================= */
@@ -1140,7 +1206,7 @@ async function deleteAppFromModal(){
   if(!confirm('确定删除这条投递记录？')) return;
   try{
     if(MODE==='feishu'){
-      await api('/api/delete',{type:'app',id:editingAppId});
+      await deleteWithPwd({type:'app',id:editingAppId});
       await refreshData();
     }else{
       db.apps=db.apps.filter(a=>a.id!==editingAppId);
@@ -1149,7 +1215,7 @@ async function deleteAppFromModal(){
     closeModal('appModal'); renderPipeline();
     if(drawerStudentId&&stuById(drawerStudentId)) openDrawer(drawerStudentId);
     toast('已删除');
-  }catch(e){ toast('删除失败：'+e.message); }
+  }catch(e){ if(!e.needDeletePwd) toast('删除失败：'+e.message); }
 }
 
 /* ================= 导入导出 ================= */

@@ -11,6 +11,8 @@ const AUTH_ENABLED = !!ACCESS_PASSWORD;
 const FEISHU_APP_ID = process.env.FEISHU_APP_ID || '';
 const FEISHU_APP_SECRET = process.env.FEISHU_APP_SECRET || '';
 const FEISHU_APP_TOKEN = process.env.FEISHU_APP_TOKEN || '';
+const DELETE_PASSWORD = process.env.DELETE_PASSWORD || '';
+const DELETE_PROTECTED = !!DELETE_PASSWORD; // 仅当设置了删除密码才启用删除校验
 const SESSION_TTL = 1000 * 60 * 60 * 24 * 7; // 7 天
 const COOKIE_NAME = 'stu_auth';
 
@@ -345,9 +347,16 @@ async function handleApi(req, res) {
     }
     if (!configured()) return json(res, { ok: false, error: '尚未配置飞书应用：请在 Vercel 环境变量填写 FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_APP_TOKEN' });
     if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
-    if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData() });
+    if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/save' && req.method === 'POST') { await saveEntity(await readBody(req)); return json(res, { ok: true }); }
-    if (p === '/api/delete' && req.method === 'POST') { await deleteEntity(await readBody(req)); return json(res, { ok: true }); }
+    if (p === '/api/delete' && req.method === 'POST') {
+      const b = await readBody(req);
+      if (DELETE_PROTECTED && b.deletePassword !== DELETE_PASSWORD) {
+        return json(res, { ok: false, error: '删除密码错误', needDeletePwd: true }, 403);
+      }
+      await deleteEntity(b);
+      return json(res, { ok: true });
+    }
     if (p === '/api/migrate' && req.method === 'POST') return json(res, { ok: true, result: await migrate(await readBody(req)) });
     return json(res, { ok: false, error: '接口不存在' });
   } catch (e) {
