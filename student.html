@@ -112,6 +112,51 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 [data-theme="dark"] .btn:not(.btn-primary):hover{background:#232833}
 [data-theme="dark"] .tag-gray{background:#262b34}
 [data-theme="dark"] .sec-title{color:var(--text2)}
+
+/* ============================================================
+   颜值翻新 · 与管理端统一的设计语言 + 微动效
+   ============================================================ */
+:root{
+  --bg:#f5f6fb; --card:#ffffff; --border:#eceef4; --text:#1e2230; --text2:#6e7689;
+  --shadow:0 1px 2px rgba(20,24,48,.04), 0 6px 16px rgba(20,24,48,.05);
+  --shadow-sm:0 1px 3px rgba(20,24,48,.06);
+  --shadow-lg:0 20px 48px rgba(43,39,98,.14);
+  --radius:14px; --grad:linear-gradient(135deg,#6366f1,#8b5cf6 55%,#a855f7);
+  --grad-soft:linear-gradient(135deg,rgba(99,102,241,.12),rgba(139,92,246,.12));
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,241,.35)}
+.login-card .logo-icon{background:var(--grad);box-shadow:0 8px 18px rgba(99,102,241,.4)}
+.topbar{padding:14px 0 16px;margin-bottom:8px;background:linear-gradient(var(--bg) 70%,rgba(245,246,251,0))}
+.btn{transition:transform .12s var(--ease),box-shadow .2s,background .2s,border-color .2s}
+.btn:hover{box-shadow:0 4px 12px rgba(20,24,48,.08)}
+.btn:active{transform:scale(.96)}
+.btn-primary{box-shadow:0 6px 16px rgba(99,102,241,.28)}
+.btn-primary:hover{box-shadow:0 8px 22px rgba(99,102,241,.36);transform:translateY(-1px)}
+.btn-primary:active{transform:scale(.96) translateY(0)}
+.card{transition:box-shadow .3s var(--ease),transform .3s var(--ease),border-color .3s;animation:cardIn .5s var(--ease) both}
+.card:hover{box-shadow:var(--shadow-lg)}
+.login-card{animation:cardIn .5s var(--ease) both}
+.login-card .btn{transition:transform .12s var(--ease),box-shadow .2s,background .2s}
+.login-card .btn:active{transform:scale(.97)}
+.fld input:focus,.fld select:focus,.fld textarea:focus,.login-card input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.app-item,.pf-item{transition:transform .15s var(--ease),box-shadow .2s;border-color:var(--border)}
+.app-item:hover,.pf-item:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.modal{animation:pop .2s var(--ease)}
+@keyframes cardIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes viewIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.view-enter{animation:viewIn .4s var(--ease)}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#d6d9e2;border-radius:99px;border:3px solid var(--bg);background-clip:padding-box}
+*::-webkit-scrollbar-thumb:hover{background:#b7bccb;background-clip:padding-box}
+[data-theme="dark"]{
+  --grad-soft:linear-gradient(135deg,rgba(99,102,241,.22),rgba(139,92,246,.22));
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 16px rgba(0,0,0,.35);
+  --shadow-lg:0 22px 50px rgba(0,0,0,.55);
+}
+[data-theme="dark"] .login-card .logo-icon,[data-theme="dark"] .logo-icon{background:var(--grad)}
+[data-theme="dark"] *::-webkit-scrollbar-thumb{background:#3a4150;background-clip:padding-box;border-color:#0f1115}
 </style>
 </head>
 <body>
@@ -231,6 +276,7 @@ function logout() {
 function showMain() {
   $('loginView').style.display = 'none';
   $('mainView').style.display = '';
+  const mv=$('mainView'); mv.classList.remove('view-enter'); void mv.offsetWidth; mv.classList.add('view-enter');
   renderMe();
 }
 async function loadMe() {
