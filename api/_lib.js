@@ -130,6 +130,7 @@ async function getTableFields(tid) {
   return d.items || [];
 }
 let tableIds = null;
+let tableFieldNames = {}; // table_name -> Set(field_name)，保存时过滤掉飞书实际不存在的字段
 // 热路径：只确认表存在并返回 table_id，不校验字段类型（字段校验很慢且表结构已稳定）
 async function ensureTables() {
   if (tableIds) return tableIds;
@@ -312,6 +313,15 @@ async function saveEntity({ type, id, data }) {
       try { const r = await getRecord(ids['职位'], data.jobId); names.company = txt(r.fields['公司']); names.jobTitle = txt(r.fields['职位名称']); } catch (e) {}
     }
     fields = appFields(data, names);
+    // 过滤掉飞书投递表里实际不存在的字段（兼容旧表，例如未补「跟进日期」列时）
+    if (!tableFieldNames['投递']) {
+      const fds = await getTableFields(tid);
+      tableFieldNames['投递'] = new Set(fds.map(f => f.field_name));
+    }
+    const allowed = tableFieldNames['投递'];
+    for (const k of Object.keys(fields)) {
+      if (!allowed.has(k)) delete fields[k];
+    }
   } else throw new Error('未知类型');
   if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); return { id }; }
   const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
