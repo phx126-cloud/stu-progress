@@ -137,6 +137,28 @@ tbody tr:hover{background:#fafbff}
 
 /* 看板卡片内阶段下拉 */
 .kb-select{width:100%;margin-top:8px;padding:5px 7px;font-size:12px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text2);cursor:pointer}
+/* ===== 学员管理：主从布局（学员全景） ===== */
+.stu-master{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start;margin-top:16px}
+.stu-list-col{max-height:calc(100vh - 210px);overflow-y:auto}
+.stu-detail-col{position:sticky;top:16px}
+.stu-detail-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.sd-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sd-head .nm{font-weight:700;font-size:16px;line-height:1.2}
+.sd-stats{display:flex;gap:10px;margin:0 0 16px;padding-bottom:14px;border-bottom:1px solid #f0f1f4}
+.sd-stats>div{flex:1;background:var(--gray-bg);border-radius:10px;padding:10px 12px;text-align:center}
+.sd-stats b{display:block;font-size:18px;font-weight:700;color:var(--text)}
+.sd-stats span{font-size:12px;color:var(--text2)}
+.stu-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px rgba(99,102,241,.25)}
+tr.stu-row.selected{background:var(--primary-light)}
+tr.stu-row.selected td{background:transparent}
+.stu-detail-col .empty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text2);gap:10px}
+.stu-detail-col .empty .big{font-size:40px}
+@media(max-width:920px){
+  .stu-master{grid-template-columns:1fr}
+  .stu-list-col{max-height:none}
+  .stu-detail-col{position:static}
+  .stu-detail-card{margin-top:4px}
+}
 
 /* ===== 视觉提质 ===== */
 .logo-icon{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 14px rgba(99,102,241,.35)}
@@ -345,7 +367,10 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
         </select>
         <div class="view-toggle"><button class="vt-btn active" data-v="table" onclick="setStuView('table')">▦ 表格</button><button class="vt-btn" data-v="card" onclick="setStuView('card')">▤ 卡片</button></div>
       </div>
-      <div class="card" style="overflow-x:auto;padding:14px"><div id="studentTable"></div></div>
+      <div class="stu-master">
+        <div class="stu-list-col card" style="overflow-x:auto;padding:14px"><div id="studentTable"></div></div>
+        <div class="stu-detail-col" id="stuDetail"></div>
+      </div>
     </section>
 
     <!-- 职位库 -->
@@ -807,12 +832,14 @@ function renderFollowUp(){
 
 /* ================= 学员管理 ================= */
 let stuView='table';
+let selectedStudentId=null;
 function setStuView(v){
   stuView=v;
   document.querySelectorAll('.vt-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
   renderStudents();
 }
 function renderStudents(){
+  if(selectedStudentId && !stuById(selectedStudentId)) selectedStudentId=null;
   const kw=($('stuSearch').value||'').trim().toLowerCase();
   const st=$('stuStageFilter').value, rs=$('stuResumeFilter').value;
   let list=db.students.filter(s=>{
@@ -821,13 +848,14 @@ function renderStudents(){
     if(kw&&![s.name,s.school,s.major,s.target].join(' ').toLowerCase().includes(kw)) return false;
     return true;
   });
-  if(!list.length){ $('studentTable').innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>暂无学员，点击右上角「新增学员」开始</div>'; return; }
+  if(!list.length){ $('studentTable').innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>暂无学员，点击右上角「新增学员」开始</div>'; renderStudentDetail(); return; }
+  if(!selectedStudentId) selectedStudentId=list[0].id;
   if(stuView==='card'){
     $('studentTable').innerHTML=`<div class="stu-cards">${list.map(s=>{
       const myApps=appsOfStudent(s);
       const appCount=myApps.length;
       const offerCount=myApps.filter(a=>a.stage==='Offer').length;
-      return `<div class="stu-card" onclick="openDrawer('${s.id}')">
+      return `<div class="stu-card${s.id===selectedStudentId?' selected':''}" onclick="selectStudent('${s.id}')">
         <div class="top">${avatarOf(s)}<div><div class="nm">${esc(s.name)}</div><div class="sc">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div>
         <div class="tg">🎯 ${esc(s.target||'-')}</div>
         <div class="row"><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span><span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>
@@ -839,6 +867,7 @@ function renderStudents(){
         </div>
       </div>`;
     }).join('')}</div>`;
+    renderStudentDetail();
     return;
   }
   $('studentTable').innerHTML=`<table><thead><tr>
@@ -847,10 +876,10 @@ function renderStudents(){
     const myApps=appsOfStudent(s);
     const appCount=myApps.length;
     const offerCount=myApps.filter(a=>a.stage==='Offer').length;
-    return `<tr>
-      <td><div style="display:flex;align-items:center;gap:10px">${avatarOf(s)}<div><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div></td>
-      <td>${esc(s.target||'-')}</td>
-      <td><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span></td>
+    return `<tr class="stu-row${s.id===selectedStudentId?' selected':''}">
+      <td style="cursor:pointer" onclick="selectStudent('${s.id}')"><div style="display:flex;align-items:center;gap:10px">${avatarOf(s)}<div><div style="font-weight:600">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.school||'-')}${s.major?' · '+esc(s.major):''}</div></div></div></td>
+      <td style="cursor:pointer" onclick="selectStudent('${s.id}')">${esc(s.target||'-')}</td>
+      <td style="cursor:pointer" onclick="selectStudent('${s.id}')"><span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span></td>
       <td>${s.resumeUrl?`<a href="${esc(s.resumeUrl)}" target="_blank" title="${esc(s.resumeName||'打开简历')}">📄</a> `:''}<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></td>
       <td>${(s.portfolio||[]).length? `🗂 ${s.portfolio.length} 项`:'<span style="color:var(--text2)">—</span>'}</td>
       <td>${appCount?`${appCount} 个${offerCount?` <span class="tag tag-green">Offer×${offerCount}</span>`:''}`:'<span style="color:var(--text2)">—</span>'}</td>
@@ -860,7 +889,9 @@ function renderStudents(){
         <button class="btn-ghost danger" onclick="deleteStudent('${s.id}')">删除</button>
       </td></tr>`;
   }).join('')}</tbody></table>`;
+  renderStudentDetail();
 }
+function selectStudent(id){ selectedStudentId=id; renderStudents(); }
 
 let editingStudentId=null;
 let pendingResume=null; // {url,name}
@@ -997,12 +1028,9 @@ async function deleteStudent(id){
 
 /* ===== 学员详情抽屉 ===== */
 let drawerStudentId=null;
-function openDrawer(id){
-  const s=stuById(id); if(!s) return;
-  drawerStudentId=id;
-  $('drawerTitle').innerHTML=`${avatarOf(s)}<div><div style="font-weight:700;font-size:16px">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.target||'目标岗位未填')} · <span class="tag ${STU_STAGE_TAG[s.stage]}" style="font-size:11px">${esc(s.stage)}</span></div></div>`;
+function buildStudentDetailInner(s){
   const apps=appsOfStudent(s).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
-  $('drawerBody').innerHTML=`
+  return `
     <div class="sec-title">基本信息</div>
     <div class="info-grid">
       <div><div class="k">联系方式</div>${esc(s.contact||'-')}</div>
@@ -1015,14 +1043,39 @@ function openDrawer(id){
     <div class="pf-item"><div><div class="t">简历状态：<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>${s.resumeUrl?`<div class="u"><a href="${esc(s.resumeUrl)}" target="_blank">📄 ${esc(s.resumeName||'查看简历')}</a></div>`:'<div class="u">未上传简历</div>'}</div></div>
     <div class="sec-title">作品集（${(s.portfolio||[]).length}）<button class="btn btn-sm" onclick="openPfModal()">＋ 添加</button></div>
     ${(s.portfolio||[]).length?(s.portfolio.map(p=>`<div class="pf-item"><div style="flex:1"><div class="t">🗂 ${esc(p.title)}</div>${p.url?`<div class="u"><a href="${esc(p.url)}" target="_blank">📎 ${esc(p.name||p.url)}</a></div>`:''}</div><button class="btn-ghost danger" onclick="deletePortfolio('${p.id}')">删除</button></div>`).join('')):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无作品集条目</div>'}
-    <div class="sec-title">投递记录（${apps.length}）<button class="btn btn-sm" onclick="openAppModal(null,'${id}')">＋ 新增投递</button></div>
+    <div class="sec-title">投递记录（${apps.length}）<button class="btn btn-sm" onclick="openAppModal(null,'${s.id}')">＋ 新增投递</button></div>
     ${apps.length?apps.map(a=>{
       const j=appJobInfo(a);
-      return `<div class="app-item"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(j.company)}｜${esc(j.title)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${a.appliedAt?'投递于 '+a.appliedAt:'未投递'}${a.next?` · ⏭ ${esc(a.next)}`:''}</div></div><span class="tag ${STAGE_TAG[a.stage]}">${a.stage}</span><button class="btn-ghost" onclick="openAppModal('${a.id}')">编辑</button></div>`;
+      return `<div class="app-item"><div style="flex:1"><div style="font-weight:600;font-size:13.5px">${esc(j.company)}｜${esc(j.title)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${a.appliedAt?'投递于 '+a.appliedAt:'未投递'}${a.next?` · ⏭ ${esc(a.next)}`:''}</div>${a.notes?`<div style="font-size:12px;color:var(--text2);margin-top:2px">📝 ${esc(a.notes)}</div>`:''}</div><select class="kb-select" style="width:auto;margin-top:0" onchange="changeStage('${a.id}',this.value)">${STAGES.map(st=>`<option ${st===a.stage?'selected':''}>${st}</option>`).join('')}</select><button class="btn-ghost" onclick="openAppModal('${a.id}')">编辑</button></div>`;
     }).join(''):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无投递记录</div>'}
   `;
+}
+function openDrawer(id){
+  const s=stuById(id); if(!s) return;
+  drawerStudentId=id;
+  $('drawerTitle').innerHTML=`${avatarOf(s)}<div><div style="font-weight:700;font-size:16px">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2)">${esc(s.target||'目标岗位未填')} · <span class="tag ${STU_STAGE_TAG[s.stage]}" style="font-size:11px">${esc(s.stage)}</span></div></div>`;
+  $('drawerBody').innerHTML=buildStudentDetailInner(s);
   $('drawerMask').classList.add('show');
   $('drawer').classList.add('show');
+}
+function renderStudentDetail(){
+  const col=document.getElementById('stuDetail'); if(!col) return;
+  const s=selectedStudentId?stuById(selectedStudentId):null;
+  if(!s){ col.innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>从左侧选择一位学员查看详情</div>'; return; }
+  const apps=appsOfStudent(s);
+  const active=apps.filter(a=>a.stage==='笔试'||a.stage==='面试').length;
+  col.innerHTML=`<div class="stu-detail-card">
+    <div class="sd-head">${avatarOf(s)}
+      <div style="flex:1;min-width:0"><div class="nm">${esc(s.name)}</div><div style="font-size:12px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.contact||'-')} · ${esc(s.target||'目标岗位未填')}</div></div>
+      <span class="tag ${STU_STAGE_TAG[s.stage]||'tag-gray'}">${esc(s.stage)}</span>
+    </div>
+    <div class="sd-stats">
+      <div><b>${apps.length}</b><span>总投递</span></div>
+      <div><b>${active}</b><span>进行中</span></div>
+      <div><b>${apps.filter(a=>a.stage==='Offer').length}</b><span>Offer</span></div>
+    </div>
+    ${buildStudentDetailInner(s)}
+  </div>`;
 }
 function closeDrawer(){ drawerStudentId=null; $('drawerMask').classList.remove('show'); $('drawer').classList.remove('show'); }
 function editFromDrawer(){ if(drawerStudentId) openStudentModal(drawerStudentId); }
@@ -1191,6 +1244,7 @@ async function changeStage(id,newStage){
   try{
     if(MODE==='feishu'){ await feishuSave('app', app.id, app); renderPipeline(); }
     else save();
+    renderStudentDetail();
     toast(`已更新为「${newStage}」`);
   }catch(err){
     app.stage=oldStage; renderPipeline();
