@@ -100,6 +100,10 @@ tbody tr:hover{background:#fafbff}
 .funnel-bar-wrap{flex:1;background:var(--gray-bg);border-radius:6px;height:22px;overflow:hidden}
 .funnel-bar{height:100%;border-radius:6px;transition:width .5s;min-width:2px}
 .funnel-num{width:32px;text-align:right;font-weight:600;font-size:13px}
+.funnel-conv{font-size:11.5px;color:var(--text2);padding:1px 0 7px 68px}
+.funnel-conv b{color:var(--text);font-weight:600}
+.funnel-overall{margin-top:8px;padding-top:10px;border-top:1px dashed var(--border);font-size:13px;color:var(--text2)}
+.funnel-overall b{color:#059669;font-size:15px;font-weight:700}
 .activity-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f5f6f8;font-size:13px;align-items:flex-start}
 .activity-item:last-child{border-bottom:none}
 .activity-time{color:var(--text2);font-size:12px;white-space:nowrap;padding-top:2px}
@@ -273,6 +277,13 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 .fu-item .ft{font-size:11.5px;color:#ea580c;margin-top:5px;font-weight:600}
 .fu-item .fd2{font-size:11.5px;color:#b45309;margin-top:2px}
 [data-theme="dark"] .fu-item .fd2{color:#fbbf24}
+.fu-date{font-size:11.5px;padding:1px 8px;border-radius:20px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;font-weight:600;white-space:nowrap}
+.fu-date.overdue{background:#fef2f2;color:#dc2626;border-color:#fecaca}
+.fu-date.today{background:#fff7ed;color:#ea580c;border-color:#fed7aa}
+.fu-date.soon{background:#fffbeb;color:#b45309;border-color:#fde68a}
+.fu-date.none{background:#f8fafc;color:#94a3b8;border-color:#e2e8f0}
+.fu-done{font-size:11.5px;padding:2px 10px;border-radius:20px;border:1px solid #bbf7d0;background:#f0fdf4;color:#16a34a;cursor:pointer;font-weight:600;transition:.15s}
+.fu-done:hover{background:#dcfce7;border-color:#86efac}
 
 /* ===== 弹窗 ===== */
 .modal-mask{position:fixed;inset:0;background:rgba(17,24,39,.45);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:5vh 16px;overflow-y:auto}
@@ -338,6 +349,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
       <button id="migrateBtn" style="display:none" onclick="migrateLocal()">☁️ 迁移本地数据到飞书</button>
       <button id="repairBtn" style="display:none" onclick="repairTablesUI()">🛠️ 修复表结构（列缺失/类型不符）</button>
       <button onclick="exportCSV()">📊 导出 Excel(CSV)</button>
+      <button onclick="openImpModal()">📥 批量导入 CSV</button>
       <button onclick="exportData()">⬇️ 导出数据备份</button>
       <button id="delLockBtn" style="display:none" onclick="toggleDelLock()">🔒 点击解锁删除权限</button>
       <button onclick="document.getElementById('importFile').click()">⬆️ 导入数据</button>
@@ -499,6 +511,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
         <div class="fld"><label>职位 *</label><select id="a_job"></select></div>
         <div class="fld"><label>当前阶段</label><select id="a_stage"><option>待投递</option><option>已投递</option><option>笔试</option><option>面试</option><option>Offer</option><option>未通过</option></select></div>
         <div class="fld"><label>投递日期</label><input type="date" id="a_date"></div>
+        <div class="fld"><label>跟进日期</label><input type="date" id="a_follow" title="设定一个要跟进的截止日，仪表盘待办会按此日期提醒"></div>
         <div class="fld full"><label>下一步行动</label><input id="a_next" placeholder="如：8月2日 前完成笔试 / 准备二面"></div>
         <div class="fld full"><label>备注</label><textarea id="a_notes" placeholder="面试反馈、注意事项等"></textarea></div>
       </div>
@@ -507,6 +520,31 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
       <button class="btn btn-danger" id="a_deleteBtn" style="margin-right:auto;display:none" onclick="deleteAppFromModal()">删除</button>
       <button class="btn" onclick="closeModal('appModal')">取消</button>
       <button class="btn btn-primary" onclick="saveApp()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-mask" id="impModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head"><h3>批量导入 CSV</h3><button class="modal-close" onclick="closeModal('impModal')">✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <label style="font-size:13px;color:var(--text2)">导入类型</label>
+        <select id="impType" onchange="impPreview()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)">
+          <option value="student">学员</option>
+          <option value="job">职位</option>
+        </select>
+        <span id="impHint" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="fld full"><label>粘贴 CSV（第一行为表头）</label>
+        <textarea id="impText" rows="7" style="font-family:var(--font-mono);font-size:12px" placeholder="姓名,联系方式,学校,专业,目标岗位,辅导阶段,简历状态,备注,加入日期&#10;张三,13800000000,XX大学,计算机,后端开发,辅导中,待优化,备注文字,2026-08-01"></textarea>
+      </div>
+      <div id="impPreview" style="font-size:12px;color:var(--text2);margin-top:8px;max-height:120px;overflow:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="impPreview()">解析预览</button>
+      <button class="btn" onclick="closeModal('impModal')">取消</button>
+      <button class="btn btn-primary" onclick="importCSV()">导入</button>
     </div>
   </div>
 </div>
@@ -816,11 +854,20 @@ function renderDashboard(){
   const maxNum=Math.max(1,...stats.map(s=>s.num));
   $('statsGrid').innerHTML=stats.map(s=>`<div class="stat-card"><span class="ico">${s.ico}</span><div class="num" style="color:${s.color}">${s.num}</div><div class="lbl">${s.lbl}</div><div class="stat-bar"><i style="width:${Math.round(s.num/maxNum*100)}%;background:${s.color}"></i></div></div>`).join('');
 
-  const max=Math.max(1,...STAGES.map(st=>db.apps.filter(a=>a.stage===st).length));
-  $('funnelBody').innerHTML=STAGES.map(st=>{
-    const c=db.apps.filter(a=>a.stage===st).length;
-    return `<div class="funnel-row"><div class="funnel-label">${st}</div><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${c/max*100}%;background:${STAGE_COLOR[st]}"></div></div><div class="funnel-num">${c}</div></div>`;
-  }).join('') || '<div class="empty">暂无投递数据</div>';
+  const counts=STAGES.map(st=>({st,c:db.apps.filter(a=>a.stage===st).length}));
+  const max=Math.max(1,...counts.map(x=>x.c));
+  let funnel=counts.map((x,i)=>{
+    let row=`<div class="funnel-row"><div class="funnel-label">${x.st}</div><div class="funnel-bar-wrap"><div class="funnel-bar" style="width:${x.c/max*100}%;background:${STAGE_COLOR[x.st]}"></div></div><div class="funnel-num">${x.c}</div></div>`;
+    if(i<counts.length-1){
+      const prev=counts[i].c, next=counts[i+1].c;
+      const pct= prev>0?Math.round(next/prev*100):0;
+      row+=`<div class="funnel-conv">↓ 环节转化 <b>${pct}%</b></div>`;
+    }
+    return row;
+  }).join('');
+  const delivered=counts[1].c, offer=counts[4].c, overall=delivered>0?Math.round(offer/delivered*100):0;
+  funnel+=`<div class="funnel-overall">整体投递→Offer 转化率 <b>${overall}%</b>　<span>（${delivered} 投递 → ${offer} Offer）</span></div>`;
+  $('funnelBody').innerHTML=funnel || '<div class="empty">暂无投递数据</div>';
 
   const STU_DIST=['咨询中','辅导中','求职中','已上岸','暂停'];
   const STU_DIST_COLOR={'咨询中':'#60a5fa','辅导中':'#6366f1','求职中':'#d97706','已上岸':'#059669','暂停':'#9ca3af'};
@@ -838,27 +885,57 @@ function renderDashboard(){
   renderFollowUp();
 }
 function renderFollowUp(){
-  const weekAgoTs=Date.now()-7*86400000;
   const items=db.apps.filter(a=>{
     if(a.stage==='未通过'||a.stage==='Offer') return false;
-    const hasNext=(a.next||'').trim().length>0;
-    const stale=!a.updatedAt || new Date(a.updatedAt.replace(/-/g,'/')).getTime()<weekAgoTs;
-    return hasNext || stale;
-  }).sort((a,b)=>(a.updatedAt||'').localeCompare(b.updatedAt||'')).slice(0,14);
+    return (a.followUpDate||'').trim().length>0 || (a.next||'').trim().length>0;
+  });
+  items.sort((a,b)=>{
+    const ad=a.followUpDate||'', bd=b.followUpDate||'';
+    if(ad&&bd) return ad.localeCompare(bd);
+    if(ad&&!bd) return -1;
+    if(!ad&&bd) return 1;
+    return (a.updatedAt||'').localeCompare(b.updatedAt||'');
+  }).slice(0,16);
   const el=$('followUp');
   if(!items.length){ el.style.display='none'; return; }
   el.style.display='flex';
   el.innerHTML=`<div class="fu-left"><div class="fu-num">${items.length}</div><div class="fu-lbl">待跟进</div></div><div class="fu-list">${items.map(a=>{
     const s=appStu(a),j=appJobInfo(a);
-    const stale=!a.updatedAt||new Date(a.updatedAt.replace(/-/g,'/')).getTime()<weekAgoTs;
-    const days=a.updatedAt?Math.max(0,Math.round((Date.now()-new Date(a.updatedAt.replace(/-/g,'/')).getTime())/86400000)):null;
+    const dd=a.followUpDate?followDateInfo(a.followUpDate):null;
+    const dateChip=dd?`<span class="fu-date ${dd.cls}">📅 ${dd.txt}</span>`:`<span class="fu-date none">无日期</span>`;
     return `<div class="fu-item" onclick="gsGo('app','${a.id}')">
       <div class="fn">${esc(s.name)} · ${esc(j.company)}</div>
       <div class="fd">${esc(j.title)}｜当前：${a.stage}</div>
       ${a.next?`<div class="ft">⏭ ${esc(a.next)}</div>`:''}
-      ${stale?`<div class="fd2">⏱ ${days} 天未更新</div>`:''}
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        ${dateChip}
+        <button class="fu-done" onclick="event.stopPropagation();completeFollowUp('${a.id}')">完成 ✓</button>
+      </div>
     </div>`;
   }).join('')}</div>`;
+}
+function followDateInfo(d){
+  if(!d) return null;
+  const t=new Date(d.replace(/-/g,'/')).getTime();
+  const base=new Date(); base.setHours(0,0,0,0);
+  const diff=Math.round((t-base.getTime())/86400000);
+  if(diff<0) return {txt:`逾期 ${-diff} 天`, cls:'overdue'};
+  if(diff===0) return {txt:'今天截止', cls:'today'};
+  if(diff<=3) return {txt:`还有 ${diff} 天`, cls:'soon'};
+  return {txt:`${diff} 天后`, cls:''};
+}
+async function completeFollowUp(id){
+  const a=db.apps.find(x=>x.id===id); if(!a) return;
+  if(!confirm('标记该跟进已完成？将清除其「下一步行动」与「跟进日期」。')) return;
+  try{
+    const data={...a, next:'', followUpDate:'', updatedAt:today()};
+    if(MODE==='feishu'){
+      const s=stuById(a.studentId), jb=jobById(a.jobId);
+      await feishuSave('app', id, data, { studentName: s?s.name:'', company: jb?jb.company:'', jobTitle: jb?jb.title:'' });
+    }else{ Object.assign(a,data); save(); }
+    toast('已标记完成');
+    renderDashboard();
+  }catch(e){ toast('操作失败：'+e.message); }
 }
 
 /* ================= 学员管理 ================= */
@@ -1290,12 +1367,13 @@ function openAppModal(id,presetStudentId){
   $('a_job').value=a.jobId||db.jobs[0].id;
   $('a_stage').value=a.stage||'待投递';
   $('a_date').value=a.appliedAt||'';
+  $('a_follow').value=a.followUpDate||'';
   $('a_next').value=a.next||'';
   $('a_notes').value=a.notes||'';
   openModalEl('appModal');
 }
 async function saveApp(){
-  const data={studentId:$('a_student').value,jobId:$('a_job').value,stage:$('a_stage').value,appliedAt:$('a_date').value,next:$('a_next').value.trim(),notes:$('a_notes').value.trim(),updatedAt:today()};
+  const data={studentId:$('a_student').value,jobId:$('a_job').value,stage:$('a_stage').value,appliedAt:$('a_date').value,followUpDate:$('a_follow').value||'',next:$('a_next').value.trim(),notes:$('a_notes').value.trim(),updatedAt:today()};
   if(data.stage!=='待投递'&&!data.appliedAt) data.appliedAt=today();
   try{
     if(!editingAppId&&db.apps.some(a=>a.studentId===data.studentId&&a.jobId===data.jobId)&&!confirm('该学员已投递过此职位，仍要再创建一条记录吗？')) return;
@@ -1392,6 +1470,81 @@ function exportCSV(){
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`学员名单_${today()}.csv`; a.click();
   toast('已导出 Excel(CSV)');
+}
+
+/* ================= 批量导入 CSV ================= */
+function openImpModal(){ $('impText').value=''; $('impPreview').innerHTML=''; impPreview(); openModalEl('impModal'); }
+function impColumns(type){
+  return type==='student'
+    ? ['姓名','联系方式','学校','专业','目标岗位','辅导阶段','简历状态','备注','加入日期']
+    : ['公司','职位名称','城市','薪资','渠道','状态','JD链接','备注'];
+}
+function parseCSV(text){
+  const rows=[]; let i=0, field='', row=[], inQ=false;
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else inQ=false; }
+      else field+=c;
+    } else {
+      if(c==='"') inQ=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+    i++;
+  }
+  if(field.length>0||row.length>0){ row.push(field); rows.push(row); }
+  return rows.filter(r=>r.some(x=>x.trim()!==''));
+}
+function impPreview(){
+  const type=$('impType').value;
+  const cols=impColumns(type);
+  $('impHint').textContent='表头需含：'+cols.join('、');
+  const text=$('impText').value.trim();
+  if(!text){ $('impPreview').innerHTML=''; return; }
+  const rows=parseCSV(text);
+  if(rows.length<2){ $('impPreview').innerHTML='<span style="color:#dc2626">未解析到数据行（需要表头 + 至少一行）</span>'; return; }
+  const headers=rows[0].map(h=>h.trim());
+  const missing=cols.filter(c=>!headers.includes(c));
+  const n=rows.length-1;
+  let html=`检测到 <b style="color:var(--text)">${n}</b> 条数据`;
+  if(missing.length) html+=` · <span style="color:#dc2626">缺列：${missing.join('、')}（留空或用默认值）</span>`;
+  else html+=` · <span style="color:#059669">列匹配完整 ✓</span>`;
+  $('impPreview').innerHTML=html;
+}
+async function importCSV(){
+  const type=$('impType').value;
+  const text=$('impText').value.trim();
+  if(!text){ toast('请先粘贴 CSV 内容'); return; }
+  const rows=parseCSV(text);
+  if(rows.length<2){ toast('未解析到数据行'); return; }
+  const headers=rows[0].map(h=>h.trim());
+  const recs=rows.slice(1).map(r=>{ const o={}; headers.forEach((h,idx)=>o[h]=(r[idx]||'').trim()); return o; });
+  let ok=0, fail=0;
+  try{
+    for(const o of recs){
+      if(type==='student'){
+        if(!o['姓名']){ fail++; continue; }
+        const stage=['咨询中','辅导中','求职中','已上岸','暂停'].includes(o['辅导阶段'])?o['辅导阶段']:'咨询中';
+        const resume=['待优化','优化中','已定稿'].includes(o['简历状态'])?o['简历状态']:'待优化';
+        const data={name:o['姓名'],contact:o['联系方式']||'',school:o['学校']||'',major:o['专业']||'',target:o['目标岗位']||'',stage,resumeStatus:resume,notes:o['备注']||'',createdAt:o['加入日期']||today(),portfolio:[]};
+        if(MODE==='feishu') await feishuSave('student', null, data); else db.students.push({id:uid(),...data});
+        ok++;
+      } else {
+        if(!o['公司']||!o['职位名称']){ fail++; continue; }
+        const status=['招聘中','已关闭'].includes(o['状态'])?o['状态']:'招聘中';
+        const data={company:o['公司'],title:o['职位名称'],city:o['城市']||'',salary:o['薪资']||'',source:o['渠道']||'',status,link:o['JD链接']||'',notes:o['备注']||''};
+        if(MODE==='feishu') await feishuSave('job', null, data); else db.jobs.push({id:uid(),...data});
+        ok++;
+      }
+    }
+    if(MODE!=='feishu') save();
+    closeModal('impModal');
+    toast(`导入完成：成功 ${ok} 条${fail?` · 跳过 ${fail} 条（缺必填项）`:''}`);
+    renderDashboard(); rerenderCurrent();
+  }catch(e){ toast('导入失败：'+e.message); }
 }
 
 /* ================= 初始化 ================= */

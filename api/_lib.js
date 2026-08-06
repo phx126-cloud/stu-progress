@@ -122,7 +122,7 @@ const TABLE_DEFS = {
   '投递': [
     ['学员姓名', 1], ['公司', 1], ['职位名称', 1],
     ['阶段', 3, ['待投递', '已投递', '笔试', '面试', 'Offer', '未通过']],
-    ['投递日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1]
+    ['投递日期', 1], ['跟进日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1]
   ]
 };
 async function getTableFields(tid) {
@@ -272,7 +272,7 @@ function appFrom(r) {
   return {
     id: r.record_id,
     studentName: txt(f['学员姓名']), company: txt(f['公司']), jobTitle: txt(f['职位名称']),
-    stage: txt(f['阶段']) || '待投递', appliedAt: txt(f['投递日期']),
+    stage: txt(f['阶段']) || '待投递', appliedAt: txt(f['投递日期']), followUpDate: txt(f['跟进日期']),
     next: txt(f['下一步行动']), notes: txt(f['备注']), updatedAt: txt(f['更新日期'])
   };
 }
@@ -280,7 +280,7 @@ function appFields(d, names) {
   return {
     '学员姓名': names.studentName || '', '公司': names.company || '', '职位名称': names.jobTitle || '',
     '阶段': d.stage || '待投递', '投递日期': d.appliedAt || '',
-    '下一步行动': d.next || '', '备注': d.notes || '', '更新日期': d.updatedAt || today()
+    '跟进日期': d.followUpDate || '', '下一步行动': d.next || '', '备注': d.notes || '', '更新日期': d.updatedAt || today()
   };
 }
 
