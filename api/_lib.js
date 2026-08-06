@@ -432,9 +432,26 @@ async function handleApi(req, res) {
       const ids = await ensureTables();
       const r = await getRecord(ids['学员'], sid);
       const studentName = txt(r.fields['姓名']);
+      // 编辑时校验：只能改自己的投递
+      if (b.id) {
+        const ar = await getRecord(ids['投递'], b.id);
+        if (txt(ar.fields['学员姓名']) !== studentName) return json(res, { ok: false, error: '只能编辑自己的投递' }, 403);
+      }
       const names = { studentName, company: b.company || '', jobTitle: b.jobTitle || '' };
       if (b.jobId) { try { const jr = await getRecord(ids['职位'], b.jobId); names.company = txt(jr.fields['公司']); names.jobTitle = txt(jr.fields['职位名称']); } catch (e) {} }
-      await saveEntity({ type: 'app', id: null, data: { studentId: sid, studentName, company: names.company, jobTitle: names.jobTitle, stage: '已投递', appliedAt: b.appliedAt || today(), next: b.next || '', notes: b.notes || '' } });
+      await saveEntity({ type: 'app', id: b.id || null, data: { studentId: sid, studentName, company: names.company, jobTitle: names.jobTitle, stage: b.stage || '已投递', appliedAt: b.appliedAt || today(), next: b.next || '', notes: b.notes || '' } });
+      return json(res, { ok: true });
+    }
+    if (p === '/api/student/app-delete' && req.method === 'POST') {
+      const sid = isStudentAuthed(req);
+      if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+      const b = await readBody(req);
+      const ids = await ensureTables();
+      const sr = await getRecord(ids['学员'], sid);
+      const studentName = txt(sr.fields['姓名']);
+      const ar = await getRecord(ids['投递'], b.id);
+      if (txt(ar.fields['学员姓名']) !== studentName) return json(res, { ok: false, error: '只能删除自己的投递' }, 403);
+      await feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['投递']}/records/${b.id}`);
       return json(res, { ok: true });
     }
     if (p === '/api/student/save' && req.method === 'POST') {

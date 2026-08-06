@@ -157,22 +157,24 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
   </main>
 </div>
 
-<!-- 新增投递弹窗 -->
+<!-- 新增/编辑投递弹窗 -->
 <div class="modal-mask" id="appModal">
   <div class="modal">
-    <div class="modal-head"><h3>新增投递</h3><button class="modal-close" onclick="closeAppModal()">×</button></div>
+    <div class="modal-head"><h3 id="appModalTitle">新增投递</h3><button class="modal-close" onclick="closeAppModal()">×</button></div>
     <div class="modal-body">
       <div class="form-grid">
         <div class="fld"><label>公司 *</label><input id="a_company" placeholder="如：字节跳动"></div>
         <div class="fld"><label>职位名称 *</label><input id="a_jobTitle" placeholder="如：产品经理"></div>
+        <div class="fld"><label>当前阶段</label><select id="a_stage"><option>待投递</option><option>已投递</option><option>笔试</option><option>面试</option><option>Offer</option><option>未通过</option></select></div>
         <div class="fld"><label>投递日期</label><input id="a_appliedAt" type="date"></div>
-        <div class="fld"><label>下一步行动</label><input id="a_next" placeholder="如：等待笔试通知"></div>
+        <div class="fld full"><label>下一步行动</label><input id="a_next" placeholder="如：等待笔试通知"></div>
       </div>
       <div class="fld full" style="margin-top:14px"><label>备注</label><textarea id="a_notes" placeholder="可选"></textarea></div>
     </div>
     <div class="modal-foot">
+      <button class="btn btn-danger" id="a_deleteBtn" style="margin-right:auto;display:none" onclick="deleteApp()">删除</button>
       <button class="btn" onclick="closeAppModal()">取消</button>
-      <button class="btn btn-primary" onclick="saveApp()">提交</button>
+      <button class="btn btn-primary" onclick="saveApp()">保存</button>
     </div>
   </div>
 </div>
@@ -184,10 +186,11 @@ const $ = id => document.getElementById(id);
 const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const STU_STAGE_TAG = { '咨询中': 'tag-gray', '辅导中': 'tag-blue', '求职中': 'tag-amber', '已上岸': 'tag-green', '暂停': 'tag-gray' };
 const RESUME_TAG = { '待优化': 'tag-gray', '优化中': 'tag-amber', '已定稿': 'tag-green' };
-const APP_TAG = { '待投递': 'tag-gray', '已投递': 'tag-blue', '面试': 'tag-amber', 'Offer': 'tag-green', '未通过': 'tag-red' };
+const APP_TAG = { '待投递': 'tag-gray', '已投递': 'tag-blue', '笔试': 'tag-purple', '面试': 'tag-amber', 'Offer': 'tag-green', '未通过': 'tag-red' };
 
 let me = null;
 let dark = localStorage.getItem('stu_theme') === 'dark';
+let editingAppId = null;
 
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
@@ -279,9 +282,13 @@ function appsHTML(apps) {
     <div class="app-item">
       <div style="flex:1;min-width:0">
         <div style="font-weight:600">${esc(a.company)} · ${esc(a.jobTitle)}</div>
-        <div style="font-size:12px;color:var(--text2);margin-top:3px">${a.appliedAt ? '📅 ' + esc(a.appliedAt) : ''}${a.next ? ' · ⏭ ' + esc(a.next) : ''}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px">${a.appliedAt ? '📅 ' + esc(a.appliedAt) : ''}${a.next ? ' · ⏭ ' + esc(a.next) : ''}${a.notes ? ' · 📝 ' + esc(a.notes) : ''}</div>
       </div>
-      <span class="tag ${APP_TAG[a.stage] || 'tag-gray'}">${esc(a.stage)}</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <span class="tag ${APP_TAG[a.stage] || 'tag-gray'}">${esc(a.stage)}</span>
+        <button class="btn-ghost" onclick="openAppModal('${a.id}')">编辑</button>
+        <button class="btn-ghost" style="color:var(--red)" onclick="deleteApp('${a.id}')">删除</button>
+      </div>
     </div>`).join('');
 }
 
@@ -312,19 +319,42 @@ async function onPfFile(input) {
   } catch (e) { toast('失败：' + e.message); }
 }
 
-function openAppModal() {
-  $('a_company').value = ''; $('a_jobTitle').value = '';
-  $('a_appliedAt').value = new Date().toISOString().slice(0, 10);
-  $('a_next').value = ''; $('a_notes').value = '';
+function openAppModal(id) {
+  editingAppId = id || null;
+  $('appModalTitle').textContent = id ? '编辑投递' : '新增投递';
+  const a = id ? (me.apps || []).find(x => x.id === id) : null;
+  $('a_company').value = a ? a.company : '';
+  $('a_jobTitle').value = a ? a.jobTitle : '';
+  $('a_stage').value = a ? (a.stage || '已投递') : '已投递';
+  $('a_appliedAt').value = a ? (a.appliedAt || '') : new Date().toISOString().slice(0, 10);
+  $('a_next').value = a ? (a.next || '') : '';
+  $('a_notes').value = a ? (a.notes || '') : '';
+  $('a_deleteBtn').style.display = id ? '' : 'none';
   $('appModal').classList.add('show');
 }
-function closeAppModal() { $('appModal').classList.remove('show'); }
+function closeAppModal() { $('appModal').classList.remove('show'); editingAppId = null; }
 async function saveApp() {
   const company = $('a_company').value.trim(), jobTitle = $('a_jobTitle').value.trim();
   if (!company || !jobTitle) { toast('请填写公司和职位'); return; }
   try {
-    await stuApi('/api/student/app', { company, jobTitle, appliedAt: $('a_appliedAt').value, next: $('a_next').value.trim(), notes: $('a_notes').value.trim() });
-    closeAppModal(); toast('投递已提交'); await loadMe();
+    await stuApi('/api/student/app', {
+      id: editingAppId,
+      company, jobTitle,
+      stage: $('a_stage').value,
+      appliedAt: $('a_appliedAt').value,
+      next: $('a_next').value.trim(),
+      notes: $('a_notes').value.trim()
+    });
+    closeAppModal(); toast(editingAppId ? '投递已更新' : '投递已提交'); await loadMe();
+  } catch (e) { toast('失败：' + e.message); }
+}
+async function deleteApp(id) {
+  const targetId = id || editingAppId;
+  if (!targetId) return;
+  if (!confirm('确定删除这条投递记录吗？')) return;
+  try {
+    await stuApi('/api/student/app-delete', { id: targetId });
+    closeAppModal(); toast('已删除'); await loadMe();
   } catch (e) { toast('失败：' + e.message); }
 }
 
