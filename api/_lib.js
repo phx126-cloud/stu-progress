@@ -116,7 +116,8 @@ const TABLE_DEFS = {
     ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1], ['学员密码', 1]
   ],
   '职位': [
-    ['公司', 1], ['职位名称', 1], ['城市', 1], ['薪资', 1], ['渠道', 1],
+    ['公司', 1], ['职位名称', 1], ['职位类型', 3, ['实习', '校招', '社招', '兼职']],
+    ['城市', 1], ['薪资', 1], ['渠道', 1],
     ['状态', 3, ['招聘中', '已关闭']], ['JD链接', 1], ['备注', 1]
   ],
   '投递': [
@@ -257,14 +258,14 @@ function jobFrom(r) {
   const f = r.fields || {};
   return {
     id: r.record_id,
-    company: txt(f['公司']), title: txt(f['职位名称']), city: txt(f['城市']),
+    company: txt(f['公司']), title: txt(f['职位名称']), jobType: txt(f['职位类型']), city: txt(f['城市']),
     salary: txt(f['薪资']), source: txt(f['渠道']),
     status: txt(f['状态']) || '招聘中', link: txt(f['JD链接']), notes: txt(f['备注'])
   };
 }
 function jobFields(d) {
   return {
-    '公司': d.company || '', '职位名称': d.title || '', '城市': d.city || '', '薪资': d.salary || '',
+    '公司': d.company || '', '职位名称': d.title || '', '职位类型': d.jobType || '', '城市': d.city || '', '薪资': d.salary || '',
     '渠道': d.source || '', '状态': d.status || '招聘中', 'JD链接': d.link || '', '备注': d.notes || ''
   };
 }
@@ -298,6 +299,21 @@ async function getData() {
   return { students, jobs, apps };
 }
 
+// 表名映射 + 保存时字段白名单：只写飞书表实际存在的字段，避免旧表缺列报错
+const TBL = { student: '学员', job: '职位', app: '投递' };
+async function getAllowedFields(tableName, tid) {
+  if (!tableFieldNames[tableName]) {
+    const fds = await getTableFields(tid);
+    tableFieldNames[tableName] = new Set(fds.map(f => f.field_name));
+  }
+  return tableFieldNames[tableName];
+}
+function keepExisting(fields, allowed) {
+  const out = {};
+  for (const k of Object.keys(fields)) if (allowed.has(k)) out[k] = fields[k];
+  return out;
+}
+
 async function saveEntity({ type, id, data }) {
   const ids = await ensureTables();
   let tid, fields;
@@ -313,16 +329,9 @@ async function saveEntity({ type, id, data }) {
       try { const r = await getRecord(ids['职位'], data.jobId); names.company = txt(r.fields['公司']); names.jobTitle = txt(r.fields['职位名称']); } catch (e) {}
     }
     fields = appFields(data, names);
-    // 过滤掉飞书投递表里实际不存在的字段（兼容旧表，例如未补「跟进日期」列时）
-    if (!tableFieldNames['投递']) {
-      const fds = await getTableFields(tid);
-      tableFieldNames['投递'] = new Set(fds.map(f => f.field_name));
-    }
-    const allowed = tableFieldNames['投递'];
-    for (const k of Object.keys(fields)) {
-      if (!allowed.has(k)) delete fields[k];
-    }
   } else throw new Error('未知类型');
+  // 只写飞书表里实际存在的字段，兼容未修复表结构的旧表（新增列不会因缺列而报错）
+  fields = keepExisting(fields, await getAllowedFields(TBL[type], tid));
   if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); return { id }; }
   const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
   return { id: c.record.record_id };

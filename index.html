@@ -76,6 +76,9 @@ tbody tr:hover{background:#fafbff}
 .tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:500;white-space:nowrap}
 .tag-gray{background:var(--gray-bg);color:var(--text2)}
 .tag-blue{background:var(--blue-bg);color:var(--blue)}
+.job-title-line{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.job-title-line .jt{font-size:15px;font-weight:700;color:var(--text);line-height:1.3}
+.job-title-line .jc{font-size:12.5px;color:var(--text2);font-weight:500}
 .tag-green{background:var(--green-bg);color:var(--green)}
 .tag-amber{background:var(--amber-bg);color:var(--amber)}
 .tag-red{background:var(--red-bg);color:var(--red)}
@@ -528,7 +531,9 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
         <button class="btn btn-primary" onclick="openJobModal()">＋ 新增职位</button>
       </div>
       <div class="toolbar">
-        <div class="search-box"><input id="jobSearch" placeholder="搜索公司 / 职位 / 城市" oninput="renderJobs()"></div>
+        <div class="search-box"><input id="jobSearch" placeholder="搜索公司 / 职位 / 城市 / 类型" oninput="renderJobs()"></div>
+        <select class="filter" id="jobCityFilter" onchange="renderJobs()"><option value="">全部城市</option></select>
+        <select class="filter" id="jobTypeFilter" onchange="renderJobs()"><option value="">全部类型</option></select>
         <select class="filter" id="jobStatusFilter" onchange="renderJobs()">
           <option value="">全部状态</option><option>招聘中</option><option>已关闭</option>
         </select>
@@ -591,6 +596,7 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
       <div class="form-grid">
         <div class="fld"><label>公司 *</label><input id="j_company"></div>
         <div class="fld"><label>职位名称 *</label><input id="j_title"></div>
+        <div class="fld"><label>职位类型</label><select id="j_type"><option value="">（未设置）</option><option>实习</option><option>校招</option><option>社招</option><option>兼职</option></select></div>
         <div class="fld"><label>城市</label><input id="j_city"></div>
         <div class="fld"><label>薪资范围</label><input id="j_salary" placeholder="如：20-35K·15薪"></div>
         <div class="fld"><label>渠道来源</label><input id="j_source" placeholder="如：Boss直聘 / 内推"></div>
@@ -1331,21 +1337,41 @@ async function deletePortfolio(pid){
 }
 
 /* ================= 职位库 ================= */
+let _jobFilterSig='';
+function fillJobFilters(){
+  const cities=[...new Set(db.jobs.map(j=>j.city).filter(Boolean))].sort();
+  const types=[...new Set(db.jobs.map(j=>j.jobType).filter(Boolean))].sort();
+  const sig=cities.join('|')+'##'+types.join('|');
+  if(sig===_jobFilterSig) return;
+  _jobFilterSig=sig;
+  const cs=$('jobCityFilter'), ts=$('jobTypeFilter');
+  const cv=cs.value, tv=ts.value;
+  cs.innerHTML='<option value="">全部城市</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  cs.value=cv;
+  ts.innerHTML='<option value="">全部类型</option>'+types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  ts.value=tv;
+}
 function renderJobs(){
+  fillJobFilters();
   const kw=($('jobSearch').value||'').trim().toLowerCase();
   const st=$('jobStatusFilter').value;
+  const city=$('jobCityFilter').value;
+  const jt=$('jobTypeFilter').value;
   let list=db.jobs.filter(j=>{
     if(st&&j.status!==st) return false;
-    if(kw&&![j.company,j.title,j.city].join(' ').toLowerCase().includes(kw)) return false;
+    if(city&&j.city!==city) return false;
+    if(jt&&j.jobType!==jt) return false;
+    if(kw&&![j.company,j.title,j.city,j.jobType].join(' ').toLowerCase().includes(kw)) return false;
     return true;
   });
   if(!list.length){ $('jobTable').innerHTML='<div class="empty"><div class="big">💼</div>暂无职位，点击右上角「新增职位」开始</div>'; return; }
   $('jobTable').innerHTML=`<table><thead><tr>
-    <th>公司 / 职位</th><th>城市</th><th>薪资</th><th>渠道</th><th>状态</th><th>投递数</th><th>操作</th>
+    <th>职位 / 公司</th><th>类型</th><th>城市</th><th>薪资</th><th>渠道</th><th>状态</th><th>投递数</th><th>操作</th>
   </tr></thead><tbody>${list.map(j=>{
     const c=appsOfJob(j).length;
     return `<tr onclick="openJobModal('${j.id}')">
-      <td><div style="font-weight:600">${esc(j.company)}</div><div style="font-size:12.5px;color:var(--text2)">${esc(j.title)}${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗</a>`:''}</div></td>
+      <td><div class="job-title-line"><span class="jt">${esc(j.title)}</span><span class="jc">@${esc(j.company)}</span></div>${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗 JD</a>`:''}</td>
+      <td>${j.jobType?`<span class="tag tag-blue">${esc(j.jobType)}</span>`:'<span style="color:var(--text2)">—</span>'}</td>
       <td>${esc(j.city||'-')}</td>
       <td>${esc(j.salary||'-')}</td>
       <td>${esc(j.source||'-')}</td>
@@ -1363,6 +1389,7 @@ function openJobModal(id){
   $('jobModalTitle').textContent=id?'编辑职位':'新增职位';
   const j=id?jobById(id):{};
   $('j_company').value=j.company||''; $('j_title').value=j.title||'';
+  $('j_type').value=j.jobType||'';
   $('j_city').value=j.city||''; $('j_salary').value=j.salary||'';
   $('j_source').value=j.source||''; $('j_status').value=j.status||'招聘中';
   $('j_link').value=j.link||''; $('j_notes').value=j.notes||'';
@@ -1371,7 +1398,7 @@ function openJobModal(id){
 async function saveJob(){
   const company=$('j_company').value.trim(), title=$('j_title').value.trim();
   if(!company||!title){ toast('请填写公司和职位名称'); return; }
-  const data={company,title,city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim()};
+  const data={company,title,jobType:$('j_type').value.trim(),city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim()};
   try{
     if(MODE==='feishu'){
       await feishuSave('job', editingJobId, data);
