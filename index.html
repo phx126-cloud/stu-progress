@@ -624,8 +624,8 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
         <div class="fld full">
           <label>职位图片</label>
           <div class="img-uploader">
-            <input type="file" id="j_imgFile" accept="image/*" multiple style="display:none" onchange="handleJobImage(this)">
-            <button type="button" class="btn btn-sm" onclick="document.getElementById('j_imgFile').click()">🖼 上传职位图片</button>
+            <input type="file" id="j_imgFile" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden" onchange="handleJobImage(this)">
+            <label for="j_imgFile" class="btn btn-sm" style="cursor:pointer">🖼 上传职位图片</label>
             <span class="img-hint">支持 JD 截图、岗位海报等，可多选，单张 ≤12MB</span>
           </div>
           <div class="img-preview" id="jobImgPreview"></div>
@@ -1188,8 +1188,9 @@ function clearPfFile(){ pendingPf=null; $('p_url').value=''; $('pfChip').style.d
 /* ---------- 职位图片上传 ---------- */
 let pendingJobImages=[]; // [{url,name}]
 async function handleJobImage(input){
-  const files=input.files; if(!files||!files.length){ input.value=''; return; }
-  input.value='';
+  const files = input.files ? Array.from(input.files) : [];
+  input.value=''; // 先复制再清空，否则清空会把上面的 FileList 活引用也清空，导致循环不执行
+  if(!files.length) return;
   for(const file of files){
     try{
       const r=await uploadFile(file,'job');
