@@ -325,6 +325,16 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:4px;backgroun
 .pf-item,.app-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;gap:10px}
 .pf-item .t{font-weight:500;font-size:13.5px}
 .pf-item .u{font-size:12px;color:var(--text2);word-break:break-all}
+/* 职位图片上传 */
+.img-uploader{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.img-hint{font-size:12px;color:var(--text2)}
+.img-preview{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.img-thumb{position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--gray-bg)}
+.img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.img-thumb .x{position:absolute;top:3px;right:3px;width:20px;height:20px;border:none;border-radius:50%;background:rgba(15,17,21,.6);color:#fff;cursor:pointer;font-size:11px;line-height:20px;display:flex;align-items:center;justify-content:center;padding:0}
+.img-thumb .x:hover{background:rgba(220,38,38,.9)}
+.img-badge{display:inline-flex;align-items:center;gap:2px;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--blue-bg);color:var(--blue);font-size:11.5px;font-weight:600;vertical-align:middle}
+[data-theme="dark"] .img-thumb{background:#1b1f29}
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);background:#111827;color:#fff;padding:10px 20px;border-radius:99px;font-size:13.5px;z-index:200;opacity:0;transition:.25s;box-shadow:var(--shadow-lg)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 @media(max-width:820px){
@@ -603,6 +613,15 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
         <div class="fld"><label>状态</label><select id="j_status"><option>招聘中</option><option>已关闭</option></select></div>
         <div class="fld full"><label>JD 链接</label><input id="j_link" placeholder="https://..."></div>
         <div class="fld full"><label>备注</label><textarea id="j_notes" placeholder="职位要求要点、内推人等"></textarea></div>
+        <div class="fld full">
+          <label>职位图片</label>
+          <div class="img-uploader">
+            <input type="file" id="j_imgFile" accept="image/*" multiple hidden onchange="handleJobImage(this)">
+            <button type="button" class="btn btn-sm" onclick="document.getElementById('j_imgFile').click()">🖼 上传职位图片</button>
+            <span class="img-hint">支持 JD 截图、岗位海报等，可多选，单张 ≤12MB</span>
+          </div>
+          <div class="img-preview" id="jobImgPreview"></div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -1158,6 +1177,28 @@ function showPfChip(r){
 }
 function clearPfFile(){ pendingPf=null; $('p_url').value=''; $('pfChip').style.display='none'; const f=$('p_file'); if(f) f.value=''; }
 
+/* ---------- 职位图片上传 ---------- */
+let pendingJobImages=[]; // [{url,name}]
+async function handleJobImage(input){
+  const files=input.files; if(!files||!files.length) return;
+  input.value='';
+  for(const file of files){
+    try{
+      const r=await uploadFile(file,'job');
+      pendingJobImages.push({url:r.url, name:r.name||file.name});
+      renderJobImgPreview();
+      toast('图片已上传');
+    }catch(e){ toast('上传失败：'+e.message); }
+  }
+}
+function renderJobImgPreview(){
+  const box=$('jobImgPreview');
+  if(!box) return;
+  if(!pendingJobImages.length){ box.innerHTML=''; return; }
+  box.innerHTML=pendingJobImages.map((im,i)=>`<div class="img-thumb"><img src="${esc(im.url)}" alt="" onerror="this.style.opacity=.25"><button class="x" type="button" title="移除" onclick="removeJobImage(${i})">✕</button></div>`).join('');
+}
+function removeJobImage(i){ pendingJobImages.splice(i,1); renderJobImgPreview(); }
+
 function openStudentModal(id){
   editingStudentId=id||null;
   $('studentModalTitle').textContent=id?'编辑学员':'新增学员';
@@ -1370,7 +1411,7 @@ function renderJobs(){
   </tr></thead><tbody>${list.map(j=>{
     const c=appsOfJob(j).length;
     return `<tr onclick="openJobModal('${j.id}')">
-      <td><div class="job-title-line"><span class="jt">${esc(j.title)}</span><span class="jc">@${esc(j.company)}</span></div>${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗 JD</a>`:''}</td>
+      <td><div class="job-title-line"><span class="jt">${esc(j.title)}</span><span class="jc">@${esc(j.company)}</span></div>${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗 JD</a>`:''}${j.images&&j.images.length?` <span class="img-badge" title="职位图片">🖼${j.images.length}</span>`:''}</td>
       <td>${j.jobType?`<span class="tag tag-blue">${esc(j.jobType)}</span>`:'<span style="color:var(--text2)">—</span>'}</td>
       <td>${esc(j.city||'-')}</td>
       <td>${esc(j.salary||'-')}</td>
@@ -1393,12 +1434,14 @@ function openJobModal(id){
   $('j_city').value=j.city||''; $('j_salary').value=j.salary||'';
   $('j_source').value=j.source||''; $('j_status').value=j.status||'招聘中';
   $('j_link').value=j.link||''; $('j_notes').value=j.notes||'';
+  pendingJobImages=(j.images||[]).map(u=>({url:u,name:''}));
+  renderJobImgPreview();
   openModalEl('jobModal');
 }
 async function saveJob(){
   const company=$('j_company').value.trim(), title=$('j_title').value.trim();
   if(!company||!title){ toast('请填写公司和职位名称'); return; }
-  const data={company,title,jobType:$('j_type').value.trim(),city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim()};
+  const data={company,title,jobType:$('j_type').value.trim(),city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim(),images:pendingJobImages.map(x=>x.url)};
   try{
     if(MODE==='feishu'){
       await feishuSave('job', editingJobId, data);

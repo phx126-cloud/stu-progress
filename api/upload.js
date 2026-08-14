@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
 
     const rawName = (req.query.name || 'file').toString().slice(0, 120);
     const safeName = rawName.replace(/[^\w.\-]/g, '_').slice(0, 80) || 'file';
-    const kind = req.query.kind === 'portfolio' ? 'portfolio' : 'resume';
+    const kind = req.query.kind === 'portfolio' ? 'portfolio' : (req.query.kind === 'job' ? 'job' : 'resume');
     const options = {
       access: 'public',
       addRandomSuffix: true,

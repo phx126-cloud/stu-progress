@@ -118,7 +118,7 @@ const TABLE_DEFS = {
   '职位': [
     ['公司', 1], ['职位名称', 1], ['职位类型', 3, ['实习', '校招', '社招', '兼职']],
     ['城市', 1], ['薪资', 1], ['渠道', 1],
-    ['状态', 3, ['招聘中', '已关闭']], ['JD链接', 1], ['备注', 1]
+    ['状态', 3, ['招聘中', '已关闭']], ['JD链接', 1], ['备注', 1], ['职位图片', 1]
   ],
   '投递': [
     ['学员姓名', 1], ['公司', 1], ['职位名称', 1],
@@ -254,19 +254,31 @@ function stuFields(d) {
     '备注': d.notes || '', '加入日期': d.createdAt || today(), '学员密码': d.password || ''
   };
 }
+// 把飞书「职位图片」字段解析为 URL 数组（兼容 JSON 数组 / 换行 / 逗号 / 单链接）
+function parseImgField(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.map(x => (x && (x.link || x.url)) || x).filter(Boolean);
+  let s = typeof v === 'object' ? (v.text || v.link || '') : String(v);
+  s = (s || '').trim();
+  if (!s) return [];
+  if (s[0] === '[') { try { const a = JSON.parse(s); if (Array.isArray(a)) return a.filter(Boolean); } catch (e) {} }
+  return s.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
+}
 function jobFrom(r) {
   const f = r.fields || {};
   return {
     id: r.record_id,
     company: txt(f['公司']), title: txt(f['职位名称']), jobType: txt(f['职位类型']), city: txt(f['城市']),
     salary: txt(f['薪资']), source: txt(f['渠道']),
-    status: txt(f['状态']) || '招聘中', link: txt(f['JD链接']), notes: txt(f['备注'])
+    status: txt(f['状态']) || '招聘中', link: txt(f['JD链接']), notes: txt(f['备注']),
+    images: parseImgField(f['职位图片'])
   };
 }
 function jobFields(d) {
   return {
     '公司': d.company || '', '职位名称': d.title || '', '职位类型': d.jobType || '', '城市': d.city || '', '薪资': d.salary || '',
-    '渠道': d.source || '', '状态': d.status || '招聘中', 'JD链接': d.link || '', '备注': d.notes || ''
+    '渠道': d.source || '', '状态': d.status || '招聘中', 'JD链接': d.link || '', '备注': d.notes || '',
+    '职位图片': JSON.stringify((d.images && d.images.length) ? d.images : [])
   };
 }
 function appFrom(r) {
