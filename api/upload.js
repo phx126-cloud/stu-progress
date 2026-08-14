@@ -41,7 +41,9 @@ module.exports = async (req, res) => {
     };
     if (hasStatic) options.token = process.env.BLOB_READ_WRITE_TOKEN;
     const blob = await put(`${kind}/${Date.now()}-${safeName}`, buf, options);
-    return json(res, { url: blob.downloadUrl, name: rawName });
+    // 图片需要在网页里 inline 展示，优先返回 public url；downloadUrl 强制下载，不适合 img 标签
+    const publicUrl = blob.url || blob.downloadUrl;
+    return json(res, { url: publicUrl, downloadUrl: blob.downloadUrl || publicUrl, name: rawName });
   } catch (e) {
     return json(res, { error: e.message || '上传失败' }, 500);
   }
