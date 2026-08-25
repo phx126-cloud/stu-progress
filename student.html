@@ -187,6 +187,7 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
     </div>
 
     <div class="card" style="padding:22px;margin-bottom:18px">
+      <div class="sec-title">我的资料 <button class="btn btn-sm" onclick="openProfileModal()">编辑</button></div>
       <div id="profileBox"></div>
     </div>
 
@@ -200,6 +201,24 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
       <div id="appBox"></div>
     </div>
   </main>
+</div>
+
+<!-- 编辑资料弹窗 -->
+<div class="modal-mask" id="profileModal">
+  <div class="modal">
+    <div class="modal-head"><h3>编辑我的资料</h3><button class="modal-close" onclick="closeProfileModal()">×</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="fld full"><label>目标岗位</label><input id="p_target" placeholder="如：后端开发"></div>
+        <div class="fld full"><label>期望城市</label><input id="p_expectCity" placeholder="如：上海 / 杭州"></div>
+        <div class="fld full"><label>备注</label><textarea id="p_notes" placeholder="选填，想让导师了解的补充信息"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeProfileModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveProfile()">保存</button>
+    </div>
+  </div>
 </div>
 
 <!-- 新增/编辑投递弹窗 -->
@@ -298,6 +317,7 @@ function renderMe() {
     <div class="info-grid" style="margin-top:16px">
       <div><div class="k">目标岗位</div>${esc(s.target || '-')}</div>
       <div><div class="k">辅导阶段</div><span class="tag ${STU_STAGE_TAG[s.stage] || 'tag-gray'}">${esc(s.stage)}</span></div>
+      <div><div class="k">期望城市</div>${esc(s.expectCity || '-')}</div>
       <div><div class="k">简历状态</div><span class="tag ${RESUME_TAG[s.resumeStatus] || 'tag-gray'}">${esc(s.resumeStatus || '待优化')}</span></div>
       <div><div class="k">联系方式</div>${esc(s.contact || '-')}</div>
     </div>`;
@@ -401,6 +421,24 @@ async function deleteApp(id) {
   try {
     await stuApi('/api/student/app-delete', { id: targetId });
     closeAppModal(); toast('已删除'); await loadMe();
+  } catch (e) { toast('失败：' + e.message); }
+}
+
+function openProfileModal() {
+  const s = me.student || {};
+  $('p_target').value = s.target || '';
+  $('p_expectCity').value = s.expectCity || '';
+  $('p_notes').value = s.notes || '';
+  $('profileModal').classList.add('show');
+}
+function closeProfileModal() { $('profileModal').classList.remove('show'); }
+async function saveProfile() {
+  const target = $('p_target').value.trim();
+  const expectCity = $('p_expectCity').value.trim();
+  const notes = $('p_notes').value.trim();
+  try {
+    await stuApi('/api/student/save', { target, expectCity, notes });
+    toast('资料已保存'); closeProfileModal(); await loadMe();
   } catch (e) { toast('失败：' + e.message); }
 }
 

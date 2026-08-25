@@ -113,7 +113,7 @@ const TABLE_DEFS = {
     ['姓名', 1], ['联系方式', 1], ['学校', 1], ['专业', 1], ['目标岗位', 1],
     ['辅导阶段', 3, ['咨询中', '辅导中', '求职中', '已上岸', '暂停']],
     ['简历状态', 3, ['待优化', '优化中', '已定稿']],
-    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['加入日期', 1], ['学员密码', 1]
+    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['期望城市', 1], ['加入日期', 1], ['学员密码', 1]
   ],
   '职位': [
     ['公司', 1], ['职位名称', 1], ['职位类型', 3, ['实习', '校招', '社招', '兼职']],
@@ -123,7 +123,7 @@ const TABLE_DEFS = {
   '投递': [
     ['学员姓名', 1], ['公司', 1], ['职位名称', 1],
     ['阶段', 3, ['待投递', '已投递', '笔试', '面试', 'Offer', '未通过']],
-    ['投递日期', 1], ['跟进日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1]
+    ['投递日期', 1], ['跟进日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1], ['阶段变更时间', 1]
   ]
 };
 async function getTableFields(tid) {
@@ -237,6 +237,7 @@ function stuFrom(r) {
     stage: txt(f['辅导阶段']) || '咨询中',
     resumeStatus: txt(f['简历状态']) || '待优化',
     resumeUrl: txt(f['简历链接']), resumeName: txt(f['简历文件名']), notes: txt(f['备注']), createdAt: txt(f['加入日期']),
+    expectCity: txt(f['期望城市']),
     password: txt(f['学员密码']),
     portfolio: txt(f['作品集']).split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split('|');
@@ -251,7 +252,7 @@ function stuFields(d) {
     '简历链接': d.resumeUrl || '',
     '简历文件名': d.resumeName || '',
     '作品集': (d.portfolio || []).map(p => [p.title, p.url, p.name].filter(Boolean).join('|')).join('\n'),
-    '备注': d.notes || '', '加入日期': d.createdAt || today(), '学员密码': d.password || ''
+    '备注': d.notes || '', '期望城市': d.expectCity || '', '加入日期': d.createdAt || today(), '学员密码': d.password || ''
   };
 }
 // 把飞书「职位图片」字段解析为 URL 数组（兼容 JSON 数组 / 换行 / 逗号 / 单链接）
@@ -287,14 +288,16 @@ function appFrom(r) {
     id: r.record_id,
     studentName: txt(f['学员姓名']), company: txt(f['公司']), jobTitle: txt(f['职位名称']),
     stage: txt(f['阶段']) || '待投递', appliedAt: txt(f['投递日期']), followUpDate: txt(f['跟进日期']),
-    next: txt(f['下一步行动']), notes: txt(f['备注']), updatedAt: txt(f['更新日期'])
+    next: txt(f['下一步行动']), notes: txt(f['备注']), updatedAt: txt(f['更新日期']),
+    stageChangedAt: txt(f['阶段变更时间'])
   };
 }
 function appFields(d, names) {
   return {
     '学员姓名': names.studentName || '', '公司': names.company || '', '职位名称': names.jobTitle || '',
     '阶段': d.stage || '待投递', '投递日期': d.appliedAt || '',
-    '跟进日期': d.followUpDate || '', '下一步行动': d.next || '', '备注': d.notes || '', '更新日期': d.updatedAt || today()
+    '跟进日期': d.followUpDate || '', '下一步行动': d.next || '', '备注': d.notes || '', '更新日期': d.updatedAt || today(),
+    '阶段变更时间': d.stageChangedAt || ''
   };
 }
 
@@ -340,6 +343,14 @@ async function saveEntity({ type, id, data }) {
     if (data.jobId) {
       try { const r = await getRecord(ids['职位'], data.jobId); names.company = txt(r.fields['公司']); names.jobTitle = txt(r.fields['职位名称']); } catch (e) {}
     }
+    // 阶段变更时间：新建记录或阶段发生变化时记为当前时间，否则沿用原值
+    let existingStage = null, existingChangedAt = '';
+    if (id) {
+      try { const er = await getRecord(tid, id); existingStage = txt(er.fields['阶段']); existingChangedAt = txt(er.fields['阶段变更时间']); } catch (e) {}
+    }
+    const newStage = data.stage || '待投递';
+    const stageChanged = (existingStage === null) || (existingStage !== newStage);
+    data.stageChangedAt = stageChanged ? new Date().toISOString() : existingChangedAt;
     fields = appFields(data, names);
   } else throw new Error('未知类型');
   // 只写飞书表里实际存在的字段，兼容未修复表结构的旧表（新增列不会因缺列而报错）
@@ -489,7 +500,7 @@ async function handleApi(req, res) {
       const sid = isStudentAuthed(req);
       if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
       const b = await readBody(req);
-      const allowed = ['resumeUrl', 'resumeName', 'resumeStatus', 'portfolio'];
+      const allowed = ['resumeUrl', 'resumeName', 'resumeStatus', 'portfolio', 'target', 'notes', 'expectCity'];
       const patch = {}; allowed.forEach(k => { if (k in b) patch[k] = b[k]; });
       const ids = await ensureTables();
       const cur = stuFrom(await getRecord(ids['学员'], sid));
