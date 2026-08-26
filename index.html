@@ -537,6 +537,26 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
 .tl-title{font-weight:600;font-size:13.5px}
 .tl-date{font-size:12px;color:var(--text2);margin-top:1px}
 .tl-item.todo .tl-title{color:var(--text2)}
+/* 学员汇总表 */
+.tbl{display:flex;flex-direction:column;gap:2px}
+.tbl-row{display:grid;grid-template-columns:1fr 64px 64px 64px;align-items:center;padding:9px 10px;border-radius:8px}
+.tbl-row:hover{background:var(--gray-bg)}
+.tbl-head{font-size:12px;color:var(--text2);font-weight:600;background:none!important}
+.tbl-name{font-weight:600;cursor:pointer}
+.tbl-sub{display:block;font-size:11.5px;color:var(--text2);font-weight:400}
+.tbl-offer{color:#059669;font-weight:700}
+/* 操作日志 */
+.log-list{display:flex;flex-direction:column;gap:6px}
+.log-item{display:grid;grid-template-columns:64px 1fr 72px 150px;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px}
+.log-act{font-size:11.5px;font-weight:700;text-align:center;padding:2px 0;border-radius:6px;background:var(--gray-bg)}
+.log-新增{color:#059669}.log-编辑{color:#2563eb}.log-删除{color:#dc2626}
+.log-target{font-weight:600}
+.log-actor{font-size:12px;color:var(--text2)}
+.log-time{font-size:12px;color:var(--text2);text-align:right}
+/* 简历历史 */
+.rh-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12.5px}
+.rh-item a{color:var(--primary);word-break:break-all}
+.rh-date{margin-left:auto;color:var(--text2);font-size:11.5px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -551,6 +571,7 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
     <button class="nav-item" data-view="students" data-icon="students"><span class="ico"></span><span class="txt">学员管理</span></button>
     <button class="nav-item" data-view="jobs" data-icon="jobs"><span class="ico"></span><span class="txt">职位库</span></button>
     <button class="nav-item" data-view="pipeline" data-icon="pipeline"><span class="ico"></span><span class="txt">投递进度</span></button>
+    <button class="nav-item" data-view="logs" data-icon="log"><span class="ico"></span><span class="txt">操作日志</span></button>
     <div class="sidebar-footer">
       <div id="syncStatus" style="margin-bottom:10px;line-height:1.6"><span class="sync-dot"></span>本地模式</div>
       <button id="migrateBtn" style="display:none" onclick="migrateLocal()">迁移本地数据到飞书</button>
@@ -602,6 +623,18 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
           <div class="panel-body" id="activityBody"></div>
         </div>
       </div>
+      <div class="panel" style="margin-top:16px">
+        <div class="panel-head">🧑‍🎓 学员投递汇总 <span style="font-size:12px;color:var(--text2);font-weight:400">（按 Offer 数排序，点击学员名查看详情）</span></div>
+        <div class="panel-body" id="stuSummary"></div>
+      </div>
+    </section>
+
+    <!-- 操作日志 -->
+    <section id="view-logs" style="display:none">
+      <div class="page-head">
+        <div><div class="page-title">操作日志</div><div class="page-sub">记录每一次新增 / 编辑 / 删除（学员端操作也会记录）</div></div>
+      </div>
+      <div class="panel"><div class="panel-body" id="logBody"></div></div>
     </section>
 
     <!-- 学员管理 -->
@@ -675,6 +708,7 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
       <div class="form-grid">
         <div class="fld"><label>姓名 *</label><input id="f_name"></div>
         <div class="fld"><label>联系方式（手机/微信）</label><input id="f_contact"></div>
+        <div class="fld"><label>登录密码（学员端登录用）</label><input id="f_password" type="password" placeholder="留空=不修改；填写后作为该学员登录密码" autocomplete="new-password"></div>
         <div class="fld"><label>学校</label><input id="f_school"></div>
         <div class="fld"><label>专业</label><input id="f_major"></div>
         <div class="fld"><label>目标岗位</label><input id="f_target" placeholder="如：产品经理"></div>
@@ -878,6 +912,7 @@ const ICON_PATHS = {
   lock:'<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
   moon:'<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  log:'<path d="M9 4h6a1 1 0 0 1 1 1M9 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2M9 4a1 1 0 0 0-1 1v0M8 12h8M8 16h5"/>',
   edit:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   trash:'<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
@@ -1039,6 +1074,7 @@ function rerenderCurrent(){
   if(v==='students') renderStudents();
   if(v==='jobs') renderJobs();
   if(v==='pipeline') renderPipeline();
+  if(v==='logs') renderLogs();
 }
 function startPolling(){
   setInterval(async()=>{
@@ -1117,9 +1153,10 @@ const CRUMB={
   dashboard:['仪表盘','今天也要帮学员往前推一步'],
   students:['学员管理','学员信息、简历与作品集'],
   jobs:['职位库','收集与维护可推荐的职位'],
-  pipeline:['投递进度','拖拽卡片即可更新阶段']
+  pipeline:['投递进度','拖拽卡片即可更新阶段'],
+  logs:['操作日志','记录每一次新增 / 编辑 / 删除']
 };
-const views=['dashboard','students','jobs','pipeline'];
+const views=['dashboard','students','jobs','pipeline','logs'];
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click',()=>switchView(btn.dataset.view));
 });
@@ -1133,6 +1170,7 @@ function switchView(v){
   if(v==='students') renderStudents();
   if(v==='jobs') renderJobs();
   if(v==='pipeline') renderPipeline();
+  if(v==='logs') renderLogs();
 }
 
 /* ================= 仪表盘 ================= */
@@ -1186,6 +1224,26 @@ function renderDashboard(){
   renderAlerts();
   renderStageFunnel();
   renderFollowUp();
+  renderStuSummary();
+}
+function renderStuSummary(){
+  const rows=db.students.map(s=>{
+    const apps=appsOfStudent(s);
+    return {s,total:apps.length,interview:apps.filter(a=>a.stage==='面试').length,offer:apps.filter(a=>a.stage==='Offer').length};
+  }).sort((a,b)=>b.offer-a.offer||b.total-a.total);
+  $('stuSummary').innerHTML = rows.length ? (
+    '<div class="tbl"><div class="tbl-row tbl-head"><div>学员</div><div>投递</div><div>面试</div><div>Offer</div></div>' +
+    rows.map(r=>`<div class="tbl-row" onclick="openDrawer('${r.s.id}')"><div class="tbl-name">${esc(r.s.name)}<span class="tbl-sub">${esc(r.s.target||'')}</span></div><div>${r.total}</div><div>${r.interview}</div><div class="${r.offer?'tbl-offer':''}">${r.offer}</div></div>`).join('') +
+    '</div>'
+  ) : '<div class="empty">暂无学员</div>';
+}
+function renderLogs(){
+  const logs=db.logs||[];
+  if(!logs.length){ $('logBody').innerHTML='<div class="empty">暂无操作记录</div>'; return; }
+  $('logBody').innerHTML='<div class="log-list">'+logs.map(l=>{
+    const t=(l.at||'').replace('T',' ').slice(0,19);
+    return `<div class="log-item"><span class="log-act log-${l.action}">${esc(l.action)}</span><span class="log-target">${esc(l.target||'')}</span><span class="log-actor">${esc(l.actor||'')}</span><span class="log-time">${esc(t)}</span></div>`;
+  }).join('')+'</div>';
 }
 function renderFollowUp(){
   const items=db.apps.filter(a=>{
@@ -1472,6 +1530,7 @@ function openStudentModal(id){
   $('studentModalTitle').textContent=id?'编辑学员':'新增学员';
   const s=id?stuById(id):{};
   $('f_name').value=s.name||''; $('f_contact').value=s.contact||'';
+  $('f_password').value=s.password||'';
   $('f_school').value=s.school||''; $('f_major').value=s.major||'';
   $('f_target').value=s.target||''; $('f_stage').value=s.stage||'咨询中';
   $('f_resumeStatus').value=s.resumeStatus||'待优化'; $('f_resumeUrl').value=s.resumeUrl||'';
@@ -1485,7 +1544,14 @@ async function saveStudent(){
   const name=$('f_name').value.trim();
   if(!name){ toast('请填写学员姓名'); return; }
   const resumeName = pendingResume ? pendingResume.name : (editingStudentId ? (stuById(editingStudentId).resumeName||'') : '');
-  const data={name,contact:$('f_contact').value.trim(),school:$('f_school').value.trim(),major:$('f_major').value.trim(),target:$('f_target').value.trim(),stage:$('f_stage').value,resumeStatus:$('f_resumeStatus').value,resumeUrl:$('f_resumeUrl').value.trim(),resumeName,notes:$('f_notes').value.trim()};
+  const pw=$('f_password').value;
+  const password = pw!=='' ? pw : (editingStudentId ? (stuById(editingStudentId).password||'') : '');
+  // 简历版本：若换了新简历，把旧链接归档进历史（最多保留 10 条）
+  const oldRes = editingStudentId ? (stuById(editingStudentId).resumeUrl||'') : '';
+  let resumeHistory = editingStudentId ? (stuById(editingStudentId).resumeHistory||[]) : [];
+  const newRes = $('f_resumeUrl').value.trim();
+  if(newRes && oldRes && oldRes!==newRes){ resumeHistory=[{url:oldRes,name:resumeName||oldRes,at:today()}].concat(resumeHistory).slice(0,10); }
+  const data={name,contact:$('f_contact').value.trim(),school:$('f_school').value.trim(),major:$('f_major').value.trim(),target:$('f_target').value.trim(),stage:$('f_stage').value,resumeStatus:$('f_resumeStatus').value,resumeUrl:newRes,resumeName,notes:$('f_notes').value.trim(),password,resumeHistory};
   try{
     if(MODE==='feishu'){
       const old=editingStudentId?stuById(editingStudentId):null;
@@ -1601,6 +1667,7 @@ function buildStudentDetailInner(s){
     ${s.notes?`<div style="margin-top:12px;background:#fafbfc;border:1px solid var(--border);border-radius:10px;padding:12px;font-size:13px;line-height:1.6;color:var(--text2)">📝 ${esc(s.notes)}</div>`:''}
     <div class="sec-title">简历</div>
     <div class="pf-item"><div><div class="t">简历状态：<span class="tag ${RESUME_TAG[s.resumeStatus]||'tag-gray'}">${esc(s.resumeStatus||'待优化')}</span></div>${s.resumeUrl?`<div class="u"><a href="${esc(s.resumeUrl)}" target="_blank">📄 ${esc(s.resumeName||'查看简历')}</a></div>`:'<div class="u">未上传简历</div>'}</div></div>
+    ${(s.resumeHistory&&s.resumeHistory.length)?`<div style="margin:8px 0 4px;font-size:12px;color:var(--text2)">历史版本（${s.resumeHistory.length}）</div>`+s.resumeHistory.map(h=>`<div class="rh-item"><a href="${esc(h.url)}" target="_blank">📄 ${esc(h.name||'简历')}</a><span class="rh-date">${esc((h.at||'').slice(0,10))}</span></div>`).join(''):''}
     <div class="sec-title">作品集（${(s.portfolio||[]).length}）<button class="btn btn-sm" onclick="openPfModal()">＋ 添加</button></div>
     ${(s.portfolio||[]).length?(s.portfolio.map(p=>`<div class="pf-item"><div style="flex:1"><div class="t">🗂 ${esc(p.title)}</div>${p.url?`<div class="u"><a href="${esc(p.url)}" target="_blank">📎 ${esc(p.name||p.url)}</a></div>`:''}</div><button class="btn-ghost danger" onclick="deletePortfolio('${p.id}')">删除</button></div>`).join('')):'<div style="color:var(--text2);font-size:13px;padding:6px 2px">暂无作品集条目</div>'}
     <div class="sec-title">投递记录（${apps.length}）<button class="btn btn-sm" onclick="openAppModal(null,'${s.id}')">＋ 新增投递</button></div>

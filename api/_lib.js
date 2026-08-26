@@ -113,7 +113,7 @@ const TABLE_DEFS = {
     ['姓名', 1], ['联系方式', 1], ['学校', 1], ['专业', 1], ['目标岗位', 1],
     ['辅导阶段', 3, ['咨询中', '辅导中', '求职中', '已上岸', '暂停']],
     ['简历状态', 3, ['待优化', '优化中', '已定稿']],
-    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['期望城市', 1], ['加入日期', 1], ['学员密码', 1]
+    ['简历链接', 1], ['简历文件名', 1], ['作品集', 1], ['备注', 1], ['期望城市', 1], ['加入日期', 1], ['学员密码', 1], ['简历历史', 1]
   ],
   '职位': [
     ['公司', 1], ['职位名称', 1], ['职位类型', 3, ['实习', '校招', '社招', '兼职']],
@@ -124,6 +124,9 @@ const TABLE_DEFS = {
     ['学员姓名', 1], ['公司', 1], ['职位名称', 1],
     ['阶段', 3, ['待投递', '已投递', '笔试', '面试', 'Offer', '未通过']],
     ['投递日期', 1], ['跟进日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1], ['阶段变更时间', 1]
+  ],
+  '操作日志': [
+    ['操作', 1], ['对象', 1], ['详情', 1], ['操作人', 1], ['时间', 1]
   ]
 };
 async function getTableFields(tid) {
@@ -239,6 +242,7 @@ function stuFrom(r) {
     resumeUrl: txt(f['简历链接']), resumeName: txt(f['简历文件名']), notes: txt(f['备注']), createdAt: txt(f['加入日期']),
     expectCity: txt(f['期望城市']),
     password: txt(f['学员密码']),
+    resumeHistory: parseHistory(f['简历历史']),
     portfolio: txt(f['作品集']).split('\n').map(s => s.trim()).filter(Boolean).map((line, i) => {
       const parts = line.split('|');
       return { id: 'pf' + i, title: (parts[0] || '').trim(), url: (parts[1] || '').trim(), name: (parts[2] || '').trim() };
@@ -252,7 +256,7 @@ function stuFields(d) {
     '简历链接': d.resumeUrl || '',
     '简历文件名': d.resumeName || '',
     '作品集': (d.portfolio || []).map(p => [p.title, p.url, p.name].filter(Boolean).join('|')).join('\n'),
-    '备注': d.notes || '', '期望城市': d.expectCity || '', '加入日期': d.createdAt || today(), '学员密码': d.password || ''
+    '备注': d.notes || '', '期望城市': d.expectCity || '', '加入日期': d.createdAt || today(), '学员密码': d.password || '', '简历历史': JSON.stringify(d.resumeHistory || [])
   };
 }
 // 把飞书「职位图片」字段解析为 URL 数组（兼容 JSON 数组 / 换行 / 逗号 / 单链接）
@@ -264,6 +268,16 @@ function parseImgField(v) {
   if (!s) return [];
   if (s[0] === '[') { try { const a = JSON.parse(s); if (Array.isArray(a)) return a.filter(Boolean); } catch (e) {} }
   return s.split(/[\n,]/).map(x => x.trim()).filter(Boolean);
+}
+// 把飞书「简历历史」字段解析为 {url,name,at} 数组（兼容 JSON 数组 / 空）
+function parseHistory(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v;
+  let s = typeof v === 'object' ? (v.text || '') : String(v);
+  s = (s || '').trim();
+  if (!s) return [];
+  try { const a = JSON.parse(s); if (Array.isArray(a)) return a; } catch (e) {}
+  return [];
 }
 function jobFrom(r) {
   const f = r.fields || {};
@@ -311,7 +325,11 @@ async function getData() {
     const j = jobs.find(x => x.company === a.company && x.title === a.jobTitle);
     return { ...a, studentId: s ? s.id : '', jobId: j ? j.id : '' };
   });
-  return { students, jobs, apps };
+  const logs = (await allRecords(ids['操作日志'])).map(r => ({
+    action: txt(r.fields['操作']), target: txt(r.fields['对象']), detail: txt(r.fields['详情']),
+    actor: txt(r.fields['操作人']), at: txt(r.fields['时间']), id: r.record_id
+  })).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 100);
+  return { students, jobs, apps, logs };
 }
 
 // 表名映射 + 保存时字段白名单：只写飞书表实际存在的字段，避免旧表缺列报错
@@ -327,6 +345,21 @@ function keepExisting(fields, allowed) {
   const out = {};
   for (const k of Object.keys(fields)) if (allowed.has(k)) out[k] = fields[k];
   return out;
+}
+
+// 操作审计：写入「操作日志」表，失败不影响主流程
+let REQ_ACTOR = '系统';
+async function auditLog(action, target, detail) {
+  try {
+    const ids = await ensureTables();
+    const tid = ids['操作日志'];
+    if (!tid) return;
+    const fields = keepExisting(
+      { '操作': action || '', '对象': target || '', '详情': detail || '', '操作人': REQ_ACTOR, '时间': new Date().toISOString() },
+      await getAllowedFields('操作日志', tid)
+    );
+    await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
+  } catch (e) { /* 审计失败不影响主流程 */ }
 }
 
 async function saveEntity({ type, id, data }) {
@@ -355,17 +388,22 @@ async function saveEntity({ type, id, data }) {
   } else throw new Error('未知类型');
   // 只写飞书表里实际存在的字段，兼容未修复表结构的旧表（新增列不会因缺列而报错）
   fields = keepExisting(fields, await getAllowedFields(TBL[type], tid));
-  if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); return { id }; }
-  const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields });
-  return { id: c.record.record_id };
+  const tgt = type === 'student' ? (data.name || '学员') : type === 'job' ? (data.company + '·' + data.title) : type === 'app' ? (data.studentName + '·' + data.company) : type;
+  const isNew = !id;
+  if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); }
+  else { const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields }); id = c.record.record_id; }
+  auditLog(isNew ? '新增' : '编辑', tgt, '');
+  return { id };
 }
 
 async function deleteEntity({ type, id }) {
   const ids = await ensureTables();
+  let delTarget = type;
   const del = (tid, rid) => feishu('DELETE', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${rid}`);
   if (type === 'student') {
     let name = '';
     try { const r = await getRecord(ids['学员'], id); name = txt(r.fields['姓名']); } catch (e) {}
+    delTarget = name || '学员';
     if (name) {
       const apps = await allRecords(ids['投递']);
       for (const a of apps) if (txt(a.fields['学员姓名']) === name) await del(ids['投递'], a.record_id);
@@ -374,14 +412,17 @@ async function deleteEntity({ type, id }) {
   } else if (type === 'job') {
     let company = '', title = '';
     try { const r = await getRecord(ids['职位'], id); company = txt(r.fields['公司']); title = txt(r.fields['职位名称']); } catch (e) {}
+    delTarget = (company + '·' + title) || '职位';
     if (company || title) {
       const apps = await allRecords(ids['投递']);
       for (const a of apps) if (txt(a.fields['公司']) === company && txt(a.fields['职位名称']) === title) await del(ids['投递'], a.record_id);
     }
     await del(ids['职位'], id);
   } else if (type === 'app') {
+    delTarget = '投递记录';
     await del(ids['投递'], id);
   } else throw new Error('未知类型');
+  auditLog('删除', delTarget, '');
   return {};
 }
 
@@ -423,6 +464,7 @@ async function handleApi(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
   try {
+    REQ_ACTOR = isStudentAuthed(req) ? '学员' : (isAuthed(req) ? '管理员' : '未登录');
     // 登录 / 登出不受飞书配置与登录态限制
     if (p === '/api/login' && req.method === 'POST') {
       const b = await readBody(req);
@@ -500,10 +542,16 @@ async function handleApi(req, res) {
       const sid = isStudentAuthed(req);
       if (!sid) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
       const b = await readBody(req);
-      const allowed = ['resumeUrl', 'resumeName', 'resumeStatus', 'portfolio', 'target', 'notes', 'expectCity'];
+      const allowed = ['resumeUrl', 'resumeName', 'resumeStatus', 'portfolio', 'target', 'notes', 'expectCity', 'resumeHistory'];
       const patch = {}; allowed.forEach(k => { if (k in b) patch[k] = b[k]; });
       const ids = await ensureTables();
       const cur = stuFrom(await getRecord(ids['学员'], sid));
+      // 简历版本管理：更换或移除简历时，旧版本自动归档进「简历历史」（客户端显式传 resumeHistory 时以客户端为准），最多保留 10 版
+      if ('resumeUrl' in patch && !('resumeHistory' in b) && cur.resumeUrl && cur.resumeUrl !== patch.resumeUrl) {
+        const hist = Array.isArray(cur.resumeHistory) ? cur.resumeHistory.slice() : [];
+        hist.unshift({ url: cur.resumeUrl, name: cur.resumeName || '旧版简历', at: new Date().toISOString() });
+        patch.resumeHistory = hist.slice(0, 10);
+      }
       await saveEntity({ type: 'student', id: sid, data: { ...cur, ...patch } });
       return json(res, { ok: true });
     }
