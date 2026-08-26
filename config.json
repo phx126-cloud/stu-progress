@@ -1,8 +1,0 @@
-{
-  "_说明": "请按《飞书配置指南.md》获取以下三项后填入，保存后重启服务即可",
-  "app_id": "",
-  "app_secret": "",
-  "app_token": "",
-  "port": 3210,
-  "access_password": "3a3ed5efb1c88e27"
-}

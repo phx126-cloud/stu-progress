@@ -158,6 +158,30 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
 [data-theme="dark"] .login-card .logo-icon,[data-theme="dark"] .logo-icon{background:var(--grad)}
 [data-theme="dark"] *::-webkit-scrollbar-thumb{background:#3a4150;background-clip:padding-box;border-color:#0f1115}
 
+/* ===== AI 助手 ===== */
+.ai-actions{display:flex;gap:10px;flex-wrap:wrap}
+.match-card{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+.m-title{font-weight:600;font-size:14px}
+.m-title a{margin-left:4px;color:var(--primary);text-decoration:none;font-size:12px;font-weight:400}
+.m-meta{font-size:12px;color:var(--text2);margin-top:3px}
+.m-reason{font-size:12.5px;color:var(--text2);margin-top:6px;background:rgba(127,127,127,.06);border-radius:8px;padding:6px 10px}
+.m-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.m-score{font-weight:800;font-size:15px;color:var(--primary);min-width:36px;text-align:center;border:1.5px solid var(--primary);border-radius:9px;padding:4px 6px}
+.m-score.hi{background:var(--primary);color:#fff}
+.ai-tabs{display:flex;gap:8px;margin-bottom:14px}
+.ai-tab{border:1px solid var(--border);background:var(--card);color:var(--text2);border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;transition:all .15s}
+.ai-tab.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.ai-out-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ai-out-title{font-size:12.5px;font-weight:700;color:var(--text2)}
+.ai-out-actions{display:flex;gap:8px}
+.ai-out{border:1px solid var(--border);border-radius:12px;padding:16px 18px;background:rgba(127,127,127,.05);max-height:46vh;overflow-y:auto;line-height:1.7;font-size:13.5px}
+.ai-out h4{margin:14px 0 6px;font-size:14px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.ai-out ul{margin:6px 0 6px 18px}
+.ai-out li{margin:3px 0}
+.ai-out p{margin:6px 0}
+[data-theme="dark"] .ai-out{background:rgba(255,255,255,.04)}
+[data-theme="dark"] .m-reason{background:rgba(255,255,255,.05)}
+
 /* ===== 移动端适配 ===== */
 @media(max-width:640px){
   body{font-size:14px;-webkit-text-size-adjust:100%}
@@ -176,6 +200,10 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
   .login-card{padding:22px 18px}
   /* 16px 输入字号，避免 iOS 聚焦自动放大页面 */
   input,select,textarea{font-size:16px}
+  /* AI 推荐卡片与操作区 */
+  .match-card{flex-direction:column;align-items:stretch;gap:8px}
+  .m-right{justify-content:flex-end}
+  .ai-actions{gap:8px}
 }
 </style>
 </head>
@@ -217,6 +245,15 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
     </div>
 
     <div class="card" style="padding:22px;margin-bottom:18px">
+      <div class="sec-title">AI 助手</div>
+      <div class="ai-actions">
+        <button class="btn btn-sm" id="stuAiResumeBtn" onclick="openStuAiResume()">📝 AI 简历助手</button>
+        <button class="btn btn-sm btn-primary" id="stuMatchBtn" onclick="runJobMatch()">🎯 为我推荐职位</button>
+      </div>
+      <div id="matchBox"></div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-bottom:18px">
       <div class="sec-title">我的投递 <button class="btn btn-sm btn-primary" onclick="openAppModal()">+ 新增投递</button></div>
       <div id="appBox"></div>
     </div>
@@ -237,6 +274,35 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
     <div class="modal-foot">
       <button class="btn" onclick="closeProfileModal()">取消</button>
       <button class="btn btn-primary" onclick="saveProfile()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI 简历助手弹窗 -->
+<div class="modal-mask" id="aiResumeModal">
+  <div class="modal">
+    <div class="modal-head"><h3>🤖 AI 简历助手</h3><button class="modal-close" onclick="closeStuAiResume()">×</button></div>
+    <div class="modal-body">
+      <div class="ai-tabs">
+        <button class="ai-tab active" id="aiTabDraft" onclick="aiTab('draft')">生成初稿</button>
+        <button class="ai-tab" id="aiTabPolish" onclick="aiTab('polish')">按 JD 优化</button>
+      </div>
+      <div id="aiDraftPane">
+        <div class="fld full"><label>补充说明（实习/项目经历、技能、获奖等，选填）</label><textarea id="ai_extra" rows="5" placeholder="例：2025.06-2025.09 在 XX 公司实习，负责…；熟悉 Python/SQL；获 XX 奖学金。写越详细，生成的简历越好"></textarea></div>
+        <button class="btn btn-primary" id="aiDraftBtn" onclick="runAiDraft()">生成简历初稿</button>
+      </div>
+      <div id="aiPolishPane" style="display:none">
+        <div class="fld full"><label>我的简历内容（粘贴文本）</label><textarea id="ai_resumeText" rows="6" placeholder="粘贴你现有简历的文本内容"></textarea></div>
+        <div class="fld full" style="margin-top:12px"><label>目标职位 JD（粘贴文本）</label><textarea id="ai_jdText" rows="6" placeholder="粘贴想投岗位的招聘 JD 原文"></textarea></div>
+        <button class="btn btn-primary" id="aiPolishBtn" onclick="runAiPolish()">开始优化</button>
+      </div>
+      <div id="aiOutWrap" style="display:none;margin-top:16px">
+        <div class="ai-out-head">
+          <span class="ai-out-title">AI 结果</span>
+          <span class="ai-out-actions"><button class="btn btn-sm" onclick="aiCopyOut()">复制全文</button><button class="btn btn-sm" onclick="aiPrintOut()">打印 / 存 PDF</button></span>
+        </div>
+        <div class="ai-out" id="ai_out"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -411,12 +477,125 @@ async function onPfFile(input) {
   } catch (e) { toast('失败：' + e.message); }
 }
 
-function openAppModal(id) {
+/* ================= AI 助手 ================= */
+async function aiFetch(body) {
+  const r = await fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({ ok: false, error: '网络异常，请重试' }));
+  if (!j.ok) { if (j.needLogin) logout(); throw new Error(j.error || 'AI 调用失败'); }
+  return j;
+}
+function aiBusy(btn, on, label) { if (btn) { btn.disabled = on; btn.textContent = on ? 'AI 处理中…（约10-30秒）' : label; } }
+let aiLastText = '';
+function openStuAiResume() {
+  $('ai_extra').value = ''; $('ai_resumeText').value = ''; $('ai_jdText').value = '';
+  $('ai_out').innerHTML = ''; $('aiOutWrap').style.display = 'none';
+  aiTab('draft');
+  $('aiResumeModal').classList.add('show');
+}
+function closeStuAiResume() { $('aiResumeModal').classList.remove('show'); }
+function aiTab(t) {
+  $('aiTabDraft').classList.toggle('active', t === 'draft');
+  $('aiTabPolish').classList.toggle('active', t === 'polish');
+  $('aiDraftPane').style.display = t === 'draft' ? '' : 'none';
+  $('aiPolishPane').style.display = t === 'polish' ? '' : 'none';
+}
+function aiRender(text) {
+  aiLastText = text;
+  $('ai_out').innerHTML = mdLite(text);
+  $('aiOutWrap').style.display = '';
+}
+async function runAiDraft() {
+  const btn = $('aiDraftBtn');
+  aiBusy(btn, true, '生成简历初稿');
+  try {
+    const j = await aiFetch({ task: 'resume-draft', extra: $('ai_extra').value });
+    aiRender(j.text || '');
+    toast('简历初稿已生成，记得补充【待补充】处的内容');
+  } catch (e) { toast(e.message); }
+  finally { aiBusy(btn, false, '生成简历初稿'); }
+}
+async function runAiPolish() {
+  const btn = $('aiPolishBtn');
+  const resume = $('ai_resumeText').value.trim(), jd = $('ai_jdText').value.trim();
+  if (!resume || !jd) { toast('请同时填写简历内容和目标 JD'); return; }
+  aiBusy(btn, true, '开始优化');
+  try {
+    const j = await aiFetch({ task: 'resume-polish', resume, jd });
+    aiRender(j.text || '');
+    toast('优化结果已生成');
+  } catch (e) { toast(e.message); }
+  finally { aiBusy(btn, false, '开始优化'); }
+}
+function aiCopyOut() {
+  navigator.clipboard.writeText(aiLastText).then(() => toast('已复制到剪贴板')).catch(() => toast('复制失败，请手动选择文本'));
+}
+function aiPrintOut() {
+  if (!aiLastText) return;
+  const w = window.open('', '_blank');
+  if (!w) { toast('浏览器拦截了弹窗，请允许后重试'); return; }
+  w.document.write('<html><head><meta charset="utf-8"><title>简历</title><style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:760px;margin:32px auto;padding:0 24px;color:#1a1d26;line-height:1.75}h4{margin:14px 0 6px;font-size:15px;border-bottom:1px solid #e8eaf2;padding-bottom:4px}li{margin:4px 0}p{margin:6px 0}</style></head><body>' + mdLite(aiLastText) + '<scr' + 'ipt>window.print()</scr' + 'ipt></body></html>');
+  w.document.close();
+}
+/* 极简 Markdown 渲染（标题/加粗/列表） */
+function mdLite(md) {
+  const lines = String(md || '').split('\n'); let out = '', inList = false;
+  const inline = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  for (let l of lines) {
+    const t = l.trim();
+    if (/^[-*]\s+/.test(t)) { if (!inList) { out += '<ul>'; inList = true; } out += '<li>' + inline(t.replace(/^[-*]\s+/, '')) + '</li>'; continue; }
+    if (inList) { out += '</ul>'; inList = false; }
+    if (/^#{1,3}\s+/.test(t)) { out += '<h4>' + inline(t.replace(/^#+\s+/, '')) + '</h4>'; continue; }
+    if (!t) { continue; }
+    out += '<p>' + inline(t) + '</p>';
+  }
+  if (inList) out += '</ul>';
+  return out;
+}
+/* AI 岗位推荐 */
+let matchList = [];
+async function runJobMatch() {
+  const btn = $('stuMatchBtn');
+  aiBusy(btn, true, '🎯 为我推荐职位');
+  $('matchBox').innerHTML = '<div style="color:var(--text2);font-size:13px;margin-top:10px">AI 正在为你筛选职位…</div>';
+  try {
+    const j = await aiFetch({ task: 'job-match' });
+    renderMatch(j.list || []);
+  } catch (e) {
+    $('matchBox').innerHTML = '<div style="color:var(--text2);font-size:13px;margin-top:10px">' + esc(e.message) + '</div>';
+  } finally { aiBusy(btn, false, '🎯 为我推荐职位'); }
+}
+function renderMatch(list) {
+  matchList = list;
+  const box = $('matchBox');
+  if (!list.length) {
+    box.innerHTML = '<div style="color:var(--text2);font-size:13px;margin-top:10px">暂时没有匹配的职位——职位库在招职位不足，或匹配度都低于 50 分。可以请导师往职位库多添加一些职位。</div>';
+    return;
+  }
+  box.innerHTML = '<div class="k" style="font-size:12.5px;color:var(--text2);margin:14px 0 8px">为你找到 ' + list.length + ' 个匹配职位（按匹配度排序）</div>' +
+    list.map((m, i) => `
+    <div class="match-card">
+      <div class="m-left">
+        <div class="m-title">${esc(m.company)} · ${esc(m.title)}${m.link ? ` <a href="${esc(m.link)}" target="_blank">查看JD↗</a>` : ''}</div>
+        <div class="m-meta">${esc(m.city || '')}${m.jobType ? ' · ' + esc(m.jobType) : ''}${m.salary ? ' · ' + esc(m.salary) : ''}</div>
+        ${m.reason ? `<div class="m-reason">💡 ${esc(m.reason)}</div>` : ''}
+      </div>
+      <div class="m-right">
+        <span class="m-score${m.score >= 80 ? ' hi' : ''}">${m.score}</span>
+        <button class="btn-ghost" onclick="matchApply(${i})">记录投递</button>
+      </div>
+    </div>`).join('');
+}
+function matchApply(i) {
+  const m = matchList[i];
+  if (m) openAppModal(null, { company: m.company, title: m.title });
+}
+
+function openAppModal(id, pre) {
   editingAppId = id || null;
   $('appModalTitle').textContent = id ? '编辑投递' : '新增投递';
   const a = id ? (me.apps || []).find(x => x.id === id) : null;
-  $('a_company').value = a ? a.company : '';
-  $('a_jobTitle').value = a ? a.jobTitle : '';
+  $('a_company').value = a ? a.company : ((pre && pre.company) || '');
+  $('a_jobTitle').value = a ? a.jobTitle : ((pre && pre.title) || '');
   $('a_stage').value = a ? (a.stage || '已投递') : '已投递';
   $('a_appliedAt').value = a ? (a.appliedAt || '') : new Date().toISOString().slice(0, 10);
   $('a_next').value = a ? (a.next || '') : '';

@@ -460,6 +460,126 @@ function json(res, obj, status = 200) {
   res.end(JSON.stringify(obj));
 }
 
+/* ================= AI 助手（LLM 代理，OpenAI 兼容协议） =================
+ * 环境变量：AI_API_KEY（必填）、AI_BASE_URL（默认智谱开放平台）、AI_MODEL（默认 glm-4.7-flash，永久免费）
+ * 未配置密钥时返回 aiNotConfigured，前端据此引导用户去 Vercel 控制台配置
+ */
+const AI_BASE_URL = (process.env.AI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, '');
+const AI_MODEL = process.env.AI_MODEL || 'glm-4.7-flash';
+
+async function llmChat(messages, opts = {}) {
+  const key = process.env.AI_API_KEY;
+  if (!key) {
+    const e = new Error('AI 功能尚未配置：请在 Vercel 项目 Settings → Environment Variables 添加 AI_API_KEY（推荐智谱 open.bigmodel.cn 的 glm-4.7-flash，免费）');
+    e.aiNotConfigured = true;
+    throw e;
+  }
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
+  try {
+    const r = await fetch(AI_BASE_URL + '/chat/completions', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model: AI_MODEL, messages, temperature: opts.temperature == null ? 0.4 : opts.temperature, max_tokens: opts.maxTokens || 2400 })
+    });
+    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('AI 接口返回 ' + r.status + '：' + t.slice(0, 180)); }
+    const d = await r.json();
+    const c = d && d.choices && d.choices[0] && d.choices[0].message;
+    if (!c || !c.content) throw new Error('AI 返回内容为空，请重试');
+    return c.content;
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('AI 响应超时（25秒），请稍后重试');
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
+// 从模型输出中稳健提取 JSON（容忍 markdown 代码块/前后缀文本）
+function extractJSON(text) {
+  let s = String(text || '').trim().replace(/```json|```/g, '').trim();
+  const a = s.indexOf('['), b = s.lastIndexOf(']');
+  const c = s.indexOf('{'), d = s.lastIndexOf('}');
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  else if (c >= 0 && d > c) s = s.slice(c, d + 1);
+  return JSON.parse(s);
+}
+
+// 学员画像统一由服务端按 ID 权威读取（防止伪造他人资料）
+async function aiStudentProfile(sid) {
+  const ids = await ensureTables();
+  return stuFrom(await getRecord(ids['学员'], sid));
+}
+
+async function aiTask(b, ctx) {
+  try {
+    const task = String((b || {}).task || '');
+    const cut = (s, n) => String(s == null ? '' : s).slice(0, n);
+
+    /* --- 任务1：生成简历初稿（管理端/学员端） --- */
+    if (task === 'resume-draft') {
+      let s = null;
+      if (ctx.sid) s = await aiStudentProfile(ctx.sid);
+      else if (b.studentId) s = await aiStudentProfile(b.studentId);
+      if (!s) return { ok: false, error: '缺少学员信息，无法生成' };
+      const extra = cut(b.extra, 3000);
+      const sys = '你是一位有10年经验的求职辅导导师兼简历教练，擅长为应届生和年轻求职者撰写高质量中文简历。要求：1) 用 Markdown 输出，包含 求职意向、教育背景、实习与项目经历（STAR法则、突出量化成果）、专业技能、自我评价；2) 【最重要】严禁编造任何经历、数据或事实，只能基于给定资料组织语言，信息不足处用「【待补充：xxx】」明确标注；3) 语言精炼专业，动词开头，避免空洞套话；4) 直接输出简历正文，不要任何额外解释。';
+      const user = '请为以下学员生成求职简历初稿。\n\n学员资料：' + JSON.stringify({ 姓名: s.name, 学校: s.school, 专业: s.major, 目标岗位: s.target, 期望城市: s.expectCity, 辅导阶段: s.stage, 备注: s.notes }) + '\n\n补充信息（经历/项目/技能等，可能为空）：' + (extra || '无');
+      const text = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.5, maxTokens: 2600 });
+      return { ok: true, text };
+    }
+
+    /* --- 任务2：按 JD 定向优化简历（管理端/学员端） --- */
+    if (task === 'resume-polish') {
+      const resume = cut(b.resume, 9000), jd = cut(b.jd, 6000);
+      if (!resume.trim() || !jd.trim()) return { ok: false, error: '请同时提供简历内容和目标 JD' };
+      const sys = '你是一位资深简历优化专家。请把用户提供的简历按目标 JD 定向优化。输出分两部分：第一部分标题「## 优化后的简历」，给出完整 Markdown 简历；第二部分标题「## 修改说明」，逐条列出改了什么、为什么（对应 JD 的哪个要求）。【最重要】严禁编造简历中不存在的事实，只能重组结构、强化表达、对齐 JD 关键词。';
+      const text = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: '目标 JD：\n' + jd + '\n\n当前简历：\n' + resume }], { temperature: 0.4, maxTokens: 3000 });
+      return { ok: true, text };
+    }
+
+    /* --- 任务3：AI 岗位推荐（学员端为主，管理端带 studentId 也可用） --- */
+    if (task === 'job-match') {
+      let s = null;
+      if (ctx.sid) s = await aiStudentProfile(ctx.sid);
+      else if (b.studentId) s = await aiStudentProfile(b.studentId);
+      if (!s) return { ok: false, error: '缺少学员信息，无法推荐' };
+      const ids = await ensureTables();
+      const jobs = (await allRecords(ids['职位'])).map(jobFrom).filter(j => (j.status || '招聘中') !== '已关闭');
+      if (!jobs.length) return { ok: false, error: '职位库暂无在招职位，请先在管理端添加' };
+      const list = jobs.slice(0, 40).map((j, i) => ({ i, 公司: j.company, 职位: j.title, 城市: j.city || '', 类型: j.jobType || '', 薪资: j.salary || '', 要求: (j.notes || '').slice(0, 200) }));
+      const sys = '你是求职辅导导师，擅长为学员匹配职位。只输出严格 JSON 数组，不要 markdown 代码块、不要任何解释文字。';
+      const user = '学员画像：' + JSON.stringify({ 学校: s.school, 专业: s.major, 目标岗位: s.target, 期望城市: s.expectCity, 备注: (s.notes || '').slice(0, 200) }) + '\n\n职位列表：' + JSON.stringify(list) + '\n\n请为该学员匹配职位，输出 JSON 数组：[{"i":职位序号,"score":0到100的匹配分,"reason":"一句话推荐理由，结合学员背景与职位要求"}]。只保留 score>=50 的职位，按 score 从高到低排序，最多10条。';
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.2, maxTokens: 1600 });
+      const arr = extractJSON(out);
+      if (!Array.isArray(arr)) throw new Error('AI 返回格式异常，请重试');
+      const picks = [];
+      for (const x of arr) {
+        const j = jobs[x && x.i];
+        if (!j || !Number.isFinite(Number(x.score))) continue;
+        picks.push({ id: j.id, company: j.company, title: j.title, jobType: j.jobType, city: j.city, salary: j.salary, link: j.link, score: Math.round(Number(x.score)), reason: String(x.reason || '').slice(0, 120) });
+      }
+      picks.sort((a, b2) => b2.score - a.score);
+      return { ok: true, list: picks.slice(0, 10) };
+    }
+
+    /* --- 任务4：JD 解析入库（仅管理端） --- */
+    if (task === 'jd-parse') {
+      if (!ctx.admin) return { ok: false, error: '该功能仅管理端可用' };
+      const jd = cut(b.jd, 6000);
+      if (!jd.trim()) return { ok: false, error: '请粘贴 JD 文本' };
+      const sys = '你是招聘信息解析助手。只输出严格 JSON 对象，不要 markdown 代码块、不要任何解释文字。';
+      const user = '从下面的招聘 JD 中提取结构化信息，输出 JSON：{"company":"公司名","title":"职位名称","jobType":"实习/校招/社招/兼职 四选一，判断不了留空","city":"城市","salary":"薪资范围如 20-35K·15薪，没有留空","source":"渠道来源如 Boss直聘/官网，没有留空","link":"JD链接，没有留空","notes":"职位要求要点摘要，100字内"}\n\nJD原文：\n' + jd;
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.1, maxTokens: 700 });
+      const g = extractJSON(out);
+      const pick = v => String(v == null ? '' : v).trim().slice(0, 200);
+      return { ok: true, job: { company: pick(g.company), title: pick(g.title), jobType: pick(g.jobType), city: pick(g.city), salary: pick(g.salary), source: pick(g.source), link: pick(g.link), notes: pick(g.notes) } };
+    }
+
+    return { ok: false, error: '未知 AI 任务：' + (task || '(空)') };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || 'AI 调用失败', aiNotConfigured: !!(e && e.aiNotConfigured) };
+  }
+}
+
 async function handleApi(req, res) {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
@@ -554,6 +674,14 @@ async function handleApi(req, res) {
       }
       await saveEntity({ type: 'student', id: sid, data: { ...cur, ...patch } });
       return json(res, { ok: true });
+    }
+
+    // AI 助手：管理员或学员登录态均可调用（学员仅能操作自己的资料）
+    if (p === '/api/ai' && req.method === 'POST') {
+      const sid = isStudentAuthed(req);
+      const admin = isAuthed(req);
+      if (!sid && !admin) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
+      return json(res, await aiTask(await readBody(req), { sid, admin }));
     }
 
     if (AUTH_ENABLED && !isAuthed(req)) return json(res, { ok: false, error: '未登录或登录已过期', needLogin: true }, 401);
