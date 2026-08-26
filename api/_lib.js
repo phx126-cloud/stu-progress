@@ -467,6 +467,26 @@ function json(res, obj, status = 200) {
 const AI_BASE_URL = (process.env.AI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4').replace(/\/+$/, '');
 const AI_MODEL = process.env.AI_MODEL || 'glm-4.7-flash';
 
+async function llmOnce(messages, opts, key, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(AI_BASE_URL + '/chat/completions', {
+      method: 'POST', signal: ctrl.signal,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+      body: JSON.stringify({ model: AI_MODEL, messages, temperature: opts.temperature == null ? 0.4 : opts.temperature, max_tokens: opts.maxTokens || 2400 })
+    });
+    if (!r.ok) { const t = await r.text().catch(() => ''); const e = new Error('AI 接口返回 ' + r.status + '：' + t.slice(0, 180)); e.status = r.status; throw e; }
+    const d = await r.json();
+    const c = d && d.choices && d.choices[0] && d.choices[0].message;
+    if (!c || !c.content) { const e = new Error('AI 返回内容为空'); e.empty = true; throw e; }
+    return c.content;
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('AI 响应超时，请稍后重试');
+    throw e;
+  } finally { clearTimeout(timer); }
+}
+
 async function llmChat(messages, opts = {}) {
   const key = process.env.AI_API_KEY;
   if (!key) {
@@ -474,23 +494,24 @@ async function llmChat(messages, opts = {}) {
     e.aiNotConfigured = true;
     throw e;
   }
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25000);
+  const t0 = Date.now();
+  const rateLimitMsg = 'AI 免费模型当前访问量过大（限流），请过 1-2 分钟再试；若频繁出现，可在 Vercel 环境变量 AI_MODEL 换成 glm-4-flash-250414 或接入 DeepSeek';
   try {
-    const r = await fetch(AI_BASE_URL + '/chat/completions', {
-      method: 'POST', signal: ctrl.signal,
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
-      body: JSON.stringify({ model: AI_MODEL, messages, temperature: opts.temperature == null ? 0.4 : opts.temperature, max_tokens: opts.maxTokens || 2400 })
-    });
-    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error('AI 接口返回 ' + r.status + '：' + t.slice(0, 180)); }
-    const d = await r.json();
-    const c = d && d.choices && d.choices[0] && d.choices[0].message;
-    if (!c || !c.content) throw new Error('AI 返回内容为空，请重试');
-    return c.content;
+    return await llmOnce(messages, opts, key, 25000);
   } catch (e) {
-    if (e && e.name === 'AbortError') throw new Error('AI 响应超时（25秒），请稍后重试');
-    throw e;
-  } finally { clearTimeout(timer); }
+    // 免费模型限流（429）或偶发空内容：仅在快速失败时自动重试 1 次（总耗时控制在函数 30s 上限内）
+    const retryable = (e && e.status === 429) || (e && e.empty);
+    if (!retryable) throw e;
+    if (e && e.status === 429 && Date.now() - t0 > 8000) throw new Error(rateLimitMsg);
+    await new Promise(r => setTimeout(r, 2500));
+    try {
+      return await llmOnce(messages, opts, key, 18000);
+    } catch (e2) {
+      if (e2 && e2.status === 429) throw new Error(rateLimitMsg);
+      if (e2 && e2.empty) throw new Error('AI 返回内容为空，请重试');
+      throw e2;
+    }
+  }
 }
 
 // 从模型输出中稳健提取 JSON（容忍 markdown 代码块/前后缀文本）
