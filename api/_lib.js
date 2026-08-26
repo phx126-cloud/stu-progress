@@ -474,7 +474,7 @@ async function llmOnce(messages, opts, key, timeoutMs) {
     const r = await fetch(AI_BASE_URL + '/chat/completions', {
       method: 'POST', signal: ctrl.signal,
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
-      body: JSON.stringify({ model: AI_MODEL, messages, temperature: opts.temperature == null ? 0.4 : opts.temperature, max_tokens: opts.maxTokens || 2400 })
+      body: JSON.stringify({ model: AI_MODEL, messages, temperature: opts.temperature == null ? 0.4 : opts.temperature, max_tokens: opts.maxTokens || 2400, thinking: { type: 'disabled' } })
     });
     if (!r.ok) { const t = await r.text().catch(() => ''); const e = new Error('AI 接口返回 ' + r.status + '：' + t.slice(0, 180)); e.status = r.status; throw e; }
     const d = await r.json();
