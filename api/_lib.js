@@ -601,6 +601,35 @@ async function aiTask(b, ctx) {
       return { ok: true, job: { company: pick(g.company), title: pick(g.title), jobType: pick(g.jobType), city: pick(g.city), salary: pick(g.salary), nature: pick(g.nature), industry: pick(g.industry), edu: pick(g.edu), majors: pick(g.majors), cohort: pick(g.cohort), source: pick(g.source), link: pick(g.link), notes: pick(g.notes) } };
     }
 
+    /* --- 任务5：批量职位标注（仅管理端，补历史数据用） --- */
+    if (task === 'job-annotate') {
+      if (!ctx.admin) return { ok: false, error: '该功能仅管理端可用' };
+      const jobs = (Array.isArray(b.jobs) ? b.jobs : []).slice(0, 40)
+        .map((j, i) => ({ i, 公司: cut(j.company, 80), 职位: cut(j.title, 80), 类型: cut(j.jobType, 20), 城市: cut(j.city, 60) }))
+        .filter(j => j.公司);
+      if (!jobs.length) return { ok: false, error: '职位列表为空' };
+      const sys = '你是企业信息专家，熟悉中国公司背景与行业分类。只输出严格 JSON 数组，不要 markdown 代码块、不要任何解释文字。';
+      const user = '为下列职位库记录补齐标注信息。输出 JSON 数组，每项：{"i":序号,"nature":"公司性质，六选一：央企/国企/上市/大厂/外企/中小","industry":"所属行业，如：互联网/游戏/电商/快消/新消费/新能源/汽车/金融/咨询/教育/医疗/智能制造/半导体/广告营销/媒体内容/物流/消费电子/在线旅游","edu":"学历要求，校招/实习类默认填本科，不确定留空","cohort":"面向届数，当前是2026年秋招季：校招类默认27届，实习留空，其他不确定留空","majors":"专业方向，仅当职位名称明显指向某类专业时填（如设计师→设计类，财务→财务会计类），否则留空"}。依据公司常识判断（例：字节跳动=大厂/互联网，德勤=外企/金融咨询，宁德时代=上市/新能源）。没把握的字段一律留空字符串，不要编造。\n\n职位列表：' + JSON.stringify(jobs);
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.1, maxTokens: 2000 });
+      const arr = extractJSON(out);
+      if (!Array.isArray(arr)) throw new Error('AI 返回格式异常，请重试');
+      const NAT = ['央企', '国企', '上市', '大厂', '外企', '中小'], EDU = ['不限', '大专', '本科', '硕士', '博士'], COH = ['不限', '26届', '27届', '28届', '29届'];
+      const list = [];
+      for (const x of arr) {
+        const i = Number(x && x.i);
+        if (!Number.isInteger(i) || i < 0 || i >= jobs.length) continue;
+        list.push({
+          i,
+          nature: NAT.includes(x.nature) ? x.nature : '',
+          industry: String(x.industry || '').trim().slice(0, 20),
+          edu: EDU.includes(x.edu) ? x.edu : '',
+          cohort: COH.includes(x.cohort) ? x.cohort : '',
+          majors: String(x.majors || '').trim().slice(0, 60)
+        });
+      }
+      return { ok: true, list };
+    }
+
     return { ok: false, error: '未知 AI 任务：' + (task || '(空)') };
   } catch (e) {
     return { ok: false, error: (e && e.message) || 'AI 调用失败', aiNotConfigured: !!(e && e.aiNotConfigured) };
