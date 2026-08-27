@@ -2097,14 +2097,18 @@ function openAppModal(id,presetStudentId){
   $('a_deleteBtn').style.display=id?'':'none';
   const a=id?db.apps.find(x=>x.id===id):{};
   $('a_student').innerHTML=db.students.map(s=>`<option value="${s.id}">${esc(s.name)}（${esc(s.target||'')}）</option>`).join('');
-  // 防御：编辑投递时若 jobId 引用了已不存在的职位（被删/历史脏数据），在 select 顶部插入占位 option 保留原始信息，避免被错误 fallback 到第一个职位
-  const orphanJobId=id&&a.jobId&&!db.jobs.some(j=>j.id===a.jobId);
+  // 防御：编辑投递时若 jobId 缺失或指向已不存在的职位（历史脏数据常见），在 select 顶部插入占位项显示真实职位（来自冗余字段），
+  // 绝不回退到职位列表第一项，避免误导用户；保存时若用户未改回真实职位，jobId 保持原值不污染数据。
+  const jobResolves = id && a.jobId && db.jobs.some(j=>j.id===a.jobId);
+  const needJobPh = id && !jobResolves;            // 编辑态且 jobId 无效（空或孤儿）
   const jobOpts=db.jobs.map(j=>`<option value="${j.id}">${esc(j.company)}｜${esc(j.title)}${j.status==='已关闭'?'（已关闭）':''}</option>`).join('');
-  $('a_job').innerHTML=(orphanJobId?`<option value="${esc(a.jobId)}">⚠ 原始职位已不存在（${esc(a.company||'')}｜${esc(a.jobTitle||'')}）</option>`:'')+jobOpts;
+  const jobPhText = (id&&a.jobId) ? `⚠ 原始职位已不存在（${esc(a.company||'')}｜${esc(a.jobTitle||'')}）` : `⚠ 未关联职位库（${esc(a.company||'未填写')}｜${esc(a.jobTitle||'未填写')}）`;
+  $('a_job').innerHTML=(needJobPh?`<option value="${esc(a.jobId||'')}">${jobPhText}</option>`:'')+jobOpts;
   if(!db.students.length){ toast('请先添加学员'); return; }
-  if(!db.jobs.length&&!orphanJobId){ toast('请先添加职位'); return; }
+  if(!db.jobs.length&&!needJobPh){ toast('请先添加职位'); return; }
   $('a_student').value=a.studentId||presetStudentId||db.students[0].id;
-  $('a_job').value=a.jobId||(db.jobs[0]&&db.jobs[0].id)||'';
+  // 编辑态：jobId 有效才选中真实职位；无效时留空（显示占位项），绝不回退到职位列表第一项。新建态仍默认第一项。
+  $('a_job').value = id ? (jobResolves ? a.jobId : '') : ((db.jobs[0]&&db.jobs[0].id)||'');
   $('a_stage').value=a.stage||'待投递';
   $('a_date').value=a.appliedAt||'';
   $('a_follow').value=a.followUpDate||'';
@@ -2145,7 +2149,10 @@ async function saveApp(){
     }
     if(MODE==='feishu'){
       const s=stuById(data.studentId), jb=jobById(data.jobId);
-      await feishuSave('app', editingAppId, data, { studentName: s?s.name:'', company: jb?jb.company:'', jobTitle: jb?jb.title:'' });
+      // jobId 无法解析时（空或孤儿）保留原记录的冗余公司/职位字段，避免被清空覆盖
+      const outCompany = jb ? jb.company : (oldA ? oldA.company : '');
+      const outTitle = jb ? jb.title : (oldA ? oldA.jobTitle : '');
+      await feishuSave('app', editingAppId, data, { studentName: s?s.name:'', company: outCompany, jobTitle: outTitle });
     }else{
       if(editingAppId) Object.assign(db.apps.find(a=>a.id===editingAppId),data);
       else db.apps.push({id:uid(),...data});
