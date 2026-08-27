@@ -370,6 +370,8 @@ async function auditLog(action, target, detail) {
 async function saveEntity({ type, id, data }) {
   const ids = await ensureTables();
   let tid, fields;
+  // app 分支专用：前端发起投递时会自造字符串 id（'a'+ 时间戳），id 存在但飞书里没记录，必须按真实存在性决定走 POST/PUT
+  let recordExists = false;
   if (type === 'student') { tid = ids['学员']; fields = stuFields(data); }
   else if (type === 'job') { tid = ids['职位']; fields = jobFields(data); }
   else if (type === 'app') {
@@ -384,7 +386,7 @@ async function saveEntity({ type, id, data }) {
     // 阶段变更时间：新建记录或阶段发生变化时记为当前时间，否则沿用原值
     let existingStage = null, existingChangedAt = '';
     if (id) {
-      try { const er = await getRecord(tid, id); existingStage = txt(er.fields['阶段']); existingChangedAt = txt(er.fields['阶段变更时间']); } catch (e) {}
+      try { const er = await getRecord(tid, id); existingStage = txt(er.fields['阶段']); existingChangedAt = txt(er.fields['阶段变更时间']); recordExists = true; } catch (e) {}
     }
     const newStage = data.stage || '待投递';
     const stageChanged = (existingStage === null) || (existingStage !== newStage);
@@ -394,8 +396,9 @@ async function saveEntity({ type, id, data }) {
   // 只写飞书表里实际存在的字段，兼容未修复表结构的旧表（新增列不会因缺列而报错）
   fields = keepExisting(fields, await getAllowedFields(TBL[type], tid));
   const tgt = type === 'student' ? (data.name || '学员') : type === 'job' ? (data.company + '·' + data.title) : type === 'app' ? (data.studentName + '·' + data.company) : type;
-  const isNew = !id;
-  if (id) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); }
+  // app 按真实记录存在性判断（修复前端自造 id 误走 PUT 404 的 bug），student/job 仍按 id 是否提供（前端契约可靠）
+  const isNew = (type === 'app') ? !recordExists : !id;
+  if (!isNew) { await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records/${id}`, { fields }); }
   else { const c = await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${tid}/records`, { fields }); id = c.record.record_id; }
   auditLog(isNew ? '新增' : '编辑', tgt, '');
   return { id };
