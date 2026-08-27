@@ -182,6 +182,26 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
 [data-theme="dark"] .ai-out{background:rgba(255,255,255,.04)}
 [data-theme="dark"] .m-reason{background:rgba(255,255,255,.05)}
 
+/* ===== 公司性质徽章 / 匹配星级 / 元信息小标签 ===== */
+.nat{display:inline-block;padding:0 7px;border-radius:6px;font-size:11px;font-weight:600;line-height:17px;white-space:nowrap;letter-spacing:.5px;margin-left:6px;vertical-align:1px}
+.nat-soe{background:#fdecec;color:#b3362b;border:1px solid #f3c9c5}
+.nat-listed{background:#e2f5f1;color:#0e7a6d;border:1px solid #bfe6de}
+.nat-big{background:#efe8fd;color:#6b3fc0;border:1px solid #ded0f8}
+.nat-fie{background:#e8f0fe;color:#2456c4;border:1px solid #cdddf8}
+.nat-sme{background:var(--gray-bg);color:var(--text2);border:1px solid var(--border)}
+[data-theme="dark"] .nat-soe{background:rgba(226,88,72,.16);color:#ff9c90;border-color:rgba(226,88,72,.35)}
+[data-theme="dark"] .nat-listed{background:rgba(16,164,143,.14);color:#5ed3c1;border-color:rgba(16,164,143,.3)}
+[data-theme="dark"] .nat-big{background:rgba(139,101,232,.16);color:#c0a5f6;border-color:rgba(139,101,232,.35)}
+[data-theme="dark"] .nat-fie{background:rgba(64,120,220,.16);color:#8fb4f2;border-color:rgba(64,120,220,.35)}
+[data-theme="dark"] .nat-sme{background:#262b34;color:var(--text2);border-color:#333a45}
+.stars{color:#f5a623;font-size:15px;letter-spacing:1.5px;line-height:1;display:inline-block}
+.stars .off{color:var(--border)}
+.chip-mini{display:inline-block;background:rgba(127,127,127,.08);color:var(--text2);border-radius:5px;padding:1px 7px;font-size:11px;line-height:17px;white-space:nowrap;margin-left:5px;vertical-align:1px}
+[data-theme="dark"] .chip-mini{background:rgba(255,255,255,.07)}
+.m-score-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.stu-pref-select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);background:var(--card);cursor:pointer;outline:none}
+.stu-pref-select:focus{border-color:var(--primary)}
+
 /* ===== 移动端适配 ===== */
 @media(max-width:640px){
   body{font-size:14px;-webkit-text-size-adjust:100%}
@@ -248,6 +268,12 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
       <div class="sec-title">AI 助手</div>
       <div class="ai-actions">
         <button class="btn btn-sm" id="stuAiResumeBtn" onclick="openStuAiResume()">📝 AI 简历助手</button>
+        <select id="stuIndustryPref" class="stu-pref-select" title="行业偏好：勾选后 AI 优先推荐该行业的职位">
+          <option value="">🏷 行业不限</option>
+          <option>互联网</option><option>游戏</option><option>电商</option><option>美妆</option><option>快消</option>
+          <option>新消费</option><option>新能源</option><option>汽车</option><option>金融</option><option>教育</option>
+          <option>医疗</option><option>智能制造</option><option>广告营销</option><option>媒体内容</option>
+        </select>
         <button class="btn btn-sm btn-primary" id="stuMatchBtn" onclick="runJobMatch()">🎯 为我推荐职位</button>
       </div>
       <div id="matchBox"></div>
@@ -313,8 +339,8 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
     <div class="modal-head"><h3 id="appModalTitle">新增投递</h3><button class="modal-close" onclick="closeAppModal()">×</button></div>
     <div class="modal-body">
       <div class="form-grid">
-        <div class="fld"><label>公司 *</label><input id="a_company" placeholder="如：字节跳动"></div>
-        <div class="fld"><label>职位名称 *</label><input id="a_jobTitle" placeholder="如：产品经理"></div>
+        <div class="fld"><label>公司 *</label><input id="a_company" placeholder="如：字节跳动" oninput="pendingJobId=null"></div>
+        <div class="fld"><label>职位名称 *</label><input id="a_jobTitle" placeholder="如：产品经理" oninput="pendingJobId=null"></div>
         <div class="fld"><label>当前阶段</label><select id="a_stage"><option>待投递</option><option>已投递</option><option>笔试</option><option>面试</option><option>Offer</option><option>未通过</option></select></div>
         <div class="fld"><label>投递日期</label><input id="a_appliedAt" type="date"></div>
         <div class="fld full"><label>下一步行动</label><input id="a_next" placeholder="如：等待笔试通知"></div>
@@ -553,12 +579,18 @@ function mdLite(md) {
 }
 /* AI 岗位推荐 */
 let matchList = [];
+const NAT_CLS = { '央企': 'nat-soe', '国企': 'nat-soe', '上市': 'nat-listed', '大厂': 'nat-big', '外企': 'nat-fie', '中小': 'nat-sme' };
+function starRow(score) {
+  const n = Math.max(1, Math.min(5, Math.round(score / 20)));
+  return '<span class="stars" title="人岗匹配度 ' + score + ' 分">' + '★'.repeat(n) + '<span class="off">' + '★'.repeat(5 - n) + '</span></span>';
+}
 async function runJobMatch() {
   const btn = $('stuMatchBtn');
   aiBusy(btn, true, '🎯 为我推荐职位');
   $('matchBox').innerHTML = '<div style="color:var(--text2);font-size:13px;margin-top:10px">AI 正在为你筛选职位…</div>';
   try {
-    const j = await aiFetch({ task: 'job-match' });
+    const pref = ($('stuIndustryPref').value || '').trim();
+    const j = await aiFetch({ task: 'job-match', industry: pref });
     renderMatch(j.list || []);
   } catch (e) {
     $('matchBox').innerHTML = '<div style="color:var(--text2);font-size:13px;margin-top:10px">' + esc(e.message) + '</div>';
@@ -572,30 +604,40 @@ function renderMatch(list) {
     return;
   }
   box.innerHTML = '<div class="k" style="font-size:12.5px;color:var(--text2);margin:14px 0 8px">为你找到 ' + list.length + ' 个匹配职位（按匹配度排序）</div>' +
-    list.map((m, i) => `
+    list.map((m, i) => {
+      const meta = [m.city, m.jobType, m.salary].filter(Boolean).map(x => esc(x)).join(' · ');
+      const chips = [m.industry, (m.edu && m.edu !== '不限') ? m.edu : '', (m.cohort && m.cohort !== '不限') ? m.cohort : ''].filter(Boolean)
+        .map(c => '<span class="chip-mini">' + esc(c) + '</span>').join('');
+      return `
     <div class="match-card">
       <div class="m-left">
-        <div class="m-title">${esc(m.company)} · ${esc(m.title)}${m.link ? ` <a href="${esc(m.link)}" target="_blank">查看JD↗</a>` : ''}</div>
-        <div class="m-meta">${esc(m.city || '')}${m.jobType ? ' · ' + esc(m.jobType) : ''}${m.salary ? ' · ' + esc(m.salary) : ''}</div>
+        <div class="m-title">${esc(m.company)} · ${esc(m.title)}${m.nature ? `<span class="nat ${NAT_CLS[m.nature] || 'nat-sme'}">${esc(m.nature)}</span>` : ''}${m.link ? ` <a href="${esc(m.link)}" target="_blank">查看JD↗</a>` : ''}</div>
+        <div class="m-meta">${meta}${chips}</div>
         ${m.reason ? `<div class="m-reason">💡 ${esc(m.reason)}</div>` : ''}
       </div>
       <div class="m-right">
-        <span class="m-score${m.score >= 80 ? ' hi' : ''}">${m.score}</span>
+        <div class="m-score-wrap">
+          ${starRow(m.score)}
+          <span class="m-score${m.score >= 80 ? ' hi' : ''}">${m.score}</span>
+        </div>
         <button class="btn-ghost" onclick="matchApply(${i})">记录投递</button>
       </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
 }
 function matchApply(i) {
   const m = matchList[i];
-  if (m) openAppModal(null, { company: m.company, title: m.title });
+  if (m) openAppModal(null, { company: m.company, title: m.title, jobId: m.id });
 }
 
+let pendingJobId = null; // 从推荐卡片「记录投递」进入时携带的职位库 jobId，手动改公司/职位名后自动解除
 function openAppModal(id, pre) {
   editingAppId = id || null;
   $('appModalTitle').textContent = id ? '编辑投递' : '新增投递';
   const a = id ? (me.apps || []).find(x => x.id === id) : null;
   $('a_company').value = a ? a.company : ((pre && pre.company) || '');
   $('a_jobTitle').value = a ? a.jobTitle : ((pre && pre.title) || '');
+  pendingJobId = (!id && pre && pre.jobId) ? pre.jobId : null;
   $('a_stage').value = a ? (a.stage || '已投递') : '已投递';
   $('a_appliedAt').value = a ? (a.appliedAt || '') : new Date().toISOString().slice(0, 10);
   $('a_next').value = a ? (a.next || '') : '';
@@ -603,19 +645,22 @@ function openAppModal(id, pre) {
   $('a_deleteBtn').style.display = id ? '' : 'none';
   $('appModal').classList.add('show');
 }
-function closeAppModal() { $('appModal').classList.remove('show'); editingAppId = null; }
+function closeAppModal() { $('appModal').classList.remove('show'); editingAppId = null; pendingJobId = null; }
 async function saveApp() {
   const company = $('a_company').value.trim(), jobTitle = $('a_jobTitle').value.trim();
   if (!company || !jobTitle) { toast('请填写公司和职位'); return; }
   try {
-    await stuApi('/api/student/app', {
+    const body = {
       id: editingAppId,
       company, jobTitle,
       stage: $('a_stage').value,
       appliedAt: $('a_appliedAt').value,
       next: $('a_next').value.trim(),
       notes: $('a_notes').value.trim()
-    });
+    };
+    // 新增投递且来自职位库推荐时携带 jobId：服务端会用职位库的公司/职位名落库，保证后续 jobId 能正确关联
+    if (!editingAppId && pendingJobId) body.jobId = pendingJobId;
+    await stuApi('/api/student/app', body);
     closeAppModal(); toast(editingAppId ? '投递已更新' : '投递已提交'); await loadMe();
   } catch (e) { toast('失败：' + e.message); }
 }

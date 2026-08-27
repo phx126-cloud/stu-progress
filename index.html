@@ -85,6 +85,26 @@ tbody tr:hover{background:#fafbff}
 .tag-purple{background:var(--purple-bg);color:var(--purple)}
 .tag-indigo{background:var(--primary-light);color:var(--primary)}
 
+/* 公司性质徽章（央国企/上市/大厂等） */
+.nat{display:inline-block;padding:1px 8px;border-radius:6px;font-size:11px;font-weight:600;line-height:17px;white-space:nowrap;letter-spacing:.5px;flex-shrink:0}
+.nat-soe{background:#fdecec;color:#b3362b;border:1px solid #f3c9c5}
+.nat-listed{background:#e2f5f1;color:#0e7a6d;border:1px solid #bfe6de}
+.nat-big{background:#efe8fd;color:#6b3fc0;border:1px solid #ded0f8}
+.nat-fie{background:#e8f0fe;color:#2456c4;border:1px solid #cdddf8}
+.nat-sme{background:var(--gray-bg);color:var(--text2);border:1px solid var(--border)}
+[data-theme="dark"] .nat-soe{background:rgba(226,88,72,.16);color:#ff9c90;border-color:rgba(226,88,72,.35)}
+[data-theme="dark"] .nat-listed{background:rgba(16,164,143,.14);color:#5ed3c1;border-color:rgba(16,164,143,.3)}
+[data-theme="dark"] .nat-big{background:rgba(139,101,232,.16);color:#c0a5f6;border-color:rgba(139,101,232,.35)}
+[data-theme="dark"] .nat-fie{background:rgba(64,120,220,.16);color:#8fb4f2;border-color:rgba(64,120,220,.35)}
+[data-theme="dark"] .nat-sme{background:#262b34;color:var(--text2);border-color:#333a45}
+/* 职位行元信息小标签（行业/学历/届数/专业） */
+.job-sub2{margin-top:5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.chip-mini{display:inline-block;background:var(--gray-bg);color:var(--text2);border-radius:5px;padding:1px 7px;font-size:11px;line-height:17px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+[data-theme="dark"] .chip-mini{background:#262b34}
+/* 人岗匹配星级 */
+.stars{color:#f5a623;font-size:14px;letter-spacing:1.5px;line-height:1}
+.stars .off{color:var(--border)}
+
 .avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;flex-shrink:0}
 
 /* ===== 仪表盘 ===== */
@@ -700,7 +720,12 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
         </div>
       </div>
       <div class="toolbar">
-        <div class="search-box"><input id="jobSearch" placeholder="搜索公司 / 职位 / 城市 / 类型" oninput="renderJobs()"></div>
+        <div class="search-box"><input id="jobSearch" placeholder="搜索公司 / 职位 / 城市 / 行业 / 专业" oninput="renderJobs()"></div>
+        <select class="filter" id="jobNatureFilter" onchange="renderJobs()">
+          <option value="">全部性质</option><option>央企</option><option>国企</option><option>上市</option><option>大厂</option><option>外企</option><option>中小</option>
+        </select>
+        <select class="filter" id="jobIndustryFilter" onchange="renderJobs()"><option value="">全部行业</option></select>
+        <select class="filter" id="jobCohortFilter" onchange="renderJobs()"><option value="">全部届数</option></select>
         <select class="filter" id="jobCityFilter" onchange="renderJobs()"><option value="">全部城市</option></select>
         <select class="filter" id="jobTypeFilter" onchange="renderJobs()"><option value="">全部类型</option></select>
         <select class="filter" id="jobStatusFilter" onchange="renderJobs()">
@@ -770,6 +795,11 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
         <div class="fld"><label>城市</label><input id="j_city"></div>
         <div class="fld"><label>薪资范围</label><input id="j_salary" placeholder="如：20-35K·15薪"></div>
         <div class="fld"><label>渠道来源</label><input id="j_source" placeholder="如：Boss直聘 / 内推"></div>
+        <div class="fld"><label>公司性质</label><select id="j_nature"><option value="">（未标注）</option><option>央企</option><option>国企</option><option>上市</option><option>大厂</option><option>外企</option><option>中小</option></select></div>
+        <div class="fld"><label>行业</label><input id="j_industry" list="industryList" placeholder="如：互联网 / 游戏 / 美妆"><datalist id="industryList"><option>互联网</option><option>游戏</option><option>电商</option><option>美妆</option><option>快消</option><option>新消费</option><option>新能源</option><option>汽车</option><option>金融</option><option>教育</option><option>医疗</option><option>智能制造</option><option>半导体</option><option>广告营销</option><option>媒体内容</option><option>物流</option></datalist></div>
+        <div class="fld"><label>学历要求</label><select id="j_edu"><option value="">（未标注）</option><option>不限</option><option>大专</option><option>本科</option><option>硕士</option><option>博士</option></select></div>
+        <div class="fld"><label>面向届数</label><select id="j_cohort"><option value="">（未标注）</option><option>不限</option><option>26届</option><option>27届</option><option>28届</option><option>29届</option></select></div>
+        <div class="fld"><label>专业要求</label><input id="j_majors" placeholder="如：设计、新闻、中文；不限留空"></div>
         <div class="fld"><label>状态</label><select id="j_status"><option>招聘中</option><option>已关闭</option></select></div>
         <div class="fld full"><label>JD 链接</label><input id="j_link" placeholder="https://..."></div>
         <div class="fld full"><label>备注</label><textarea id="j_notes" placeholder="职位要求要点、内推人等"></textarea></div>
@@ -1591,8 +1621,8 @@ function mdLite(md){
 /* --- AI JD 解析入库（管理端） --- */
 function openJdParse(){
   $('jd_text').value='';
-  ['jd_company','jd_title','jd_city','jd_salary','jd_source','jd_link','jd_notes'].forEach(id=>$(id).value='');
-  $('jd_type').value='';
+  ['jd_company','jd_title','jd_city','jd_salary','jd_source','jd_link','jd_notes','jd_industry','jd_majors'].forEach(id=>$(id).value='');
+  ['jd_type','jd_nature','jd_edu','jd_cohort'].forEach(id=>$(id).value='');
   $('jd_result').style.display='none'; $('jdSaveBtn').style.display='none';
   const btn=$('jdParseBtn'); btn.disabled=false; btn.textContent='解析';
   openModalEl('jdParseModal');
@@ -1610,6 +1640,10 @@ async function runJdParse(){
     $('jd_type').value=['实习','校招','社招','兼职'].includes(g.jobType)?g.jobType:'';
     $('jd_city').value=g.city||''; $('jd_salary').value=g.salary||'';
     $('jd_source').value=g.source||''; $('jd_link').value=g.link||''; $('jd_notes').value=g.notes||'';
+    $('jd_nature').value=['央企','国企','上市','大厂','外企','中小'].includes(g.nature)?g.nature:'';
+    $('jd_edu').value=['不限','大专','本科','硕士','博士'].includes(g.edu)?g.edu:'';
+    $('jd_cohort').value=['不限','26届','27届','28届'].includes(g.cohort)?g.cohort:'';
+    $('jd_industry').value=g.industry||''; $('jd_majors').value=g.majors||'';
     $('jd_result').style.display=''; $('jdSaveBtn').style.display='';
     toast('解析完成，请确认字段后入库');
   }catch(e){ toast(e.message); }
@@ -1618,7 +1652,7 @@ async function runJdParse(){
 async function confirmJdSave(){
   const company=$('jd_company').value.trim(), title=$('jd_title').value.trim();
   if(!company||!title){ toast('公司和职位名称不能为空'); return; }
-  const data={company,title,jobType:$('jd_type').value.trim(),city:$('jd_city').value.trim(),salary:$('jd_salary').value.trim(),source:$('jd_source').value.trim(),status:'招聘中',link:$('jd_link').value.trim(),notes:$('jd_notes').value.trim(),images:[]};
+  const data={company,title,jobType:$('jd_type').value.trim(),city:$('jd_city').value.trim(),salary:$('jd_salary').value.trim(),source:$('jd_source').value.trim(),status:'招聘中',link:$('jd_link').value.trim(),notes:$('jd_notes').value.trim(),nature:$('jd_nature').value,industry:$('jd_industry').value.trim(),edu:$('jd_edu').value,cohort:$('jd_cohort').value,majors:$('jd_majors').value.trim(),images:[]};
   const btn=$('jdSaveBtn'); btn.disabled=true; btn.textContent='保存中…';
   try{
     if(MODE==='feishu'){ await feishuSave('job', null, data); }
@@ -1645,7 +1679,7 @@ function cmdSearch(){
   ];
   let items=[];
   db.students.filter(s=>!q||(s.name+' '+(s.school||'')+' '+(s.major||'')).toLowerCase().includes(q)).slice(0,6).forEach(s=>items.push({t:'学员',label:s.name,sub:esc(s.school||''),act:()=>{closeCmd();switchView('students');selectStudent(s.id);}}));
-  db.jobs.filter(j=>!q||(j.title+' '+(j.company||'')+' '+(j.city||'')).toLowerCase().includes(q)).slice(0,6).forEach(j=>items.push({t:'职位',label:j.title,sub:esc(j.company||''),act:()=>{closeCmd();openJobModal(j.id);}}));
+  db.jobs.filter(j=>!q||[j.title,j.company,j.city,j.industry,j.nature,j.majors].join(' ').toLowerCase().includes(q)).slice(0,6).forEach(j=>items.push({t:'职位',label:j.title,sub:esc(j.company||''),act:()=>{closeCmd();openJobModal(j.id);}}));
   cmds.filter(c=>!q||(q[0]===':'?c.label.toLowerCase().includes(q.slice(1)):c.label.toLowerCase().includes(q))).forEach(c=>items.push({t:'命令',label:c.label,act:c.act}));
   if(!q) items=cmds.slice(0,5).concat(items);
   cmdItems=items; cmdSel=0; renderCmd();
@@ -1884,18 +1918,34 @@ async function deletePortfolio(pid){
 
 /* ================= 职位库 ================= */
 let _jobFilterSig='';
+const NATURE_TAG={'央企':'nat-soe','国企':'nat-soe','上市':'nat-listed','大厂':'nat-big','外企':'nat-fie','中小':'nat-sme'};
+function natureBadge(j){ return j.nature?`<span class="nat ${NATURE_TAG[j.nature]||'nat-sme'}" title="公司性质">${esc(j.nature)}</span>`:''; }
+function jobMetaChips(j){
+  const items=[];
+  if(j.industry) items.push(esc(j.industry));
+  if(j.edu&&j.edu!=='不限') items.push(esc(j.edu));
+  if(j.cohort&&j.cohort!=='不限') items.push(esc(j.cohort));
+  if(j.majors) items.push('专业：'+esc(j.majors.length>24?j.majors.slice(0,24)+'…':j.majors));
+  return items.length?`<div class="job-sub2">${items.map(x=>`<span class="chip-mini">${x}</span>`).join('')}</div>`:'';
+}
 function fillJobFilters(){
   const cities=[...new Set(db.jobs.map(j=>j.city).filter(Boolean))].sort();
   const types=[...new Set(db.jobs.map(j=>j.jobType).filter(Boolean))].sort();
-  const sig=cities.join('|')+'##'+types.join('|');
+  const inds=[...new Set(db.jobs.map(j=>j.industry).filter(Boolean))].sort();
+  const cohs=[...new Set(db.jobs.map(j=>j.cohort).filter(Boolean))].sort();
+  const sig=cities.join('|')+'##'+types.join('|')+'##'+inds.join('|')+'##'+cohs.join('|');
   if(sig===_jobFilterSig) return;
   _jobFilterSig=sig;
-  const cs=$('jobCityFilter'), ts=$('jobTypeFilter');
-  const cv=cs.value, tv=ts.value;
+  const cs=$('jobCityFilter'), ts=$('jobTypeFilter'), is=$('jobIndustryFilter'), hs=$('jobCohortFilter');
+  const cv=cs.value, tv=ts.value, iv=is.value, hv=hs.value;
   cs.innerHTML='<option value="">全部城市</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   cs.value=cv;
   ts.innerHTML='<option value="">全部类型</option>'+types.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   ts.value=tv;
+  is.innerHTML='<option value="">全部行业</option>'+inds.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  is.value=iv;
+  hs.innerHTML='<option value="">全部届数</option>'+cohs.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  hs.value=hv;
 }
 function renderJobs(){
   fillJobFilters();
@@ -1903,11 +1953,17 @@ function renderJobs(){
   const st=$('jobStatusFilter').value;
   const city=$('jobCityFilter').value;
   const jt=$('jobTypeFilter').value;
+  const nat=$('jobNatureFilter').value;
+  const ind=$('jobIndustryFilter').value;
+  const coh=$('jobCohortFilter').value;
   let list=db.jobs.filter(j=>{
     if(st&&j.status!==st) return false;
     if(city&&j.city!==city) return false;
     if(jt&&j.jobType!==jt) return false;
-    if(kw&&![j.company,j.title,j.city,j.jobType].join(' ').toLowerCase().includes(kw)) return false;
+    if(nat&&j.nature!==nat) return false;
+    if(ind&&j.industry!==ind) return false;
+    if(coh&&j.cohort!==coh) return false;
+    if(kw&&![j.company,j.title,j.city,j.jobType,j.industry,j.nature,j.majors].join(' ').toLowerCase().includes(kw)) return false;
     return true;
   });
   if(!list.length){ $('jobTable').innerHTML='<div class="empty"><div class="big">💼</div>暂无职位，点击右上角「新增职位」开始</div>'; return; }
@@ -1916,7 +1972,7 @@ function renderJobs(){
   </tr></thead><tbody>${list.map(j=>{
     const c=appsOfJob(j).length;
     return `<tr onclick="openJobModal('${j.id}')">
-      <td><div class="job-title-line"><span class="jt">${esc(j.title)}</span><span class="jc">@${esc(j.company)}</span></div>${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗 JD</a>`:''}${j.images&&j.images.length?` <span class="img-badge" title="点击查看大图" onclick="event.stopPropagation();openLightbox('${esc(j.images[0])}')">🖼${j.images.length}</span>`:''}</td>
+      <td><div class="job-title-line"><span class="jt">${esc(j.title)}</span><span class="jc">@${esc(j.company)}</span>${natureBadge(j)}</div>${j.link?` <a href="${esc(j.link)}" target="_blank" title="查看JD" onclick="event.stopPropagation()">🔗 JD</a>`:''}${j.images&&j.images.length?` <span class="img-badge" title="点击查看大图" onclick="event.stopPropagation();openLightbox('${esc(j.images[0])}')">🖼${j.images.length}</span>`:''}${jobMetaChips(j)}</td>
       <td>${j.jobType?`<span class="tag tag-blue">${esc(j.jobType)}</span>`:'<span style="color:var(--text2)">—</span>'}</td>
       <td>${esc(j.city||'-')}</td>
       <td>${esc(j.salary||'-')}</td>
@@ -1974,6 +2030,8 @@ function openJobModal(id){
   $('j_type').value=j.jobType||'';
   $('j_city').value=j.city||''; $('j_salary').value=j.salary||'';
   $('j_source').value=j.source||''; $('j_status').value=j.status||'招聘中';
+  $('j_nature').value=j.nature||''; $('j_industry').value=j.industry||'';
+  $('j_edu').value=j.edu||''; $('j_cohort').value=j.cohort||''; $('j_majors').value=j.majors||'';
   $('j_link').value=j.link||''; $('j_notes').value=j.notes||'';
   pendingJobImages=(j.images||[]).map(u=>({url:u,name:''}));
   renderJobImgPreview();
@@ -1982,7 +2040,7 @@ function openJobModal(id){
 async function saveJob(){
   const company=$('j_company').value.trim(), title=$('j_title').value.trim();
   if(!company||!title){ toast('请填写公司和职位名称'); return; }
-  const data={company,title,jobType:$('j_type').value.trim(),city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim(),images:pendingJobImages.map(x=>x.url)};
+  const data={company,title,jobType:$('j_type').value.trim(),city:$('j_city').value.trim(),salary:$('j_salary').value.trim(),source:$('j_source').value.trim(),status:$('j_status').value,link:$('j_link').value.trim(),notes:$('j_notes').value.trim(),nature:$('j_nature').value,industry:$('j_industry').value.trim(),edu:$('j_edu').value,cohort:$('j_cohort').value,majors:$('j_majors').value.trim(),images:pendingJobImages.map(x=>x.url)};
   try{
     if(MODE==='feishu'){
       await feishuSave('job', editingJobId, data);
@@ -2389,7 +2447,7 @@ init();
   <div class="modal" style="max-width:660px">
     <div class="modal-head"><h3>🤖 AI 解析 JD 入库</h3><button class="modal-close" onclick="closeJdParse()">×</button></div>
     <div class="modal-body">
-      <div class="fld full"><label>粘贴 JD 文本（招聘信息 / 岗位描述原文）</label><textarea id="jd_text" rows="8" placeholder="把看到的招聘信息原文粘贴到这里，AI 会自动提取 公司 / 职位 / 城市 / 类型 / 薪资 等字段"></textarea></div>
+      <div class="fld full"><label>粘贴 JD 文本（招聘信息 / 岗位描述原文）</label><textarea id="jd_text" rows="8" placeholder="把看到的招聘信息原文粘贴到这里，AI 会自动提取 公司 / 职位 / 城市 / 类型 / 薪资 / 公司性质 / 行业 / 学历 / 届数 / 专业 等字段"></textarea></div>
       <div id="jd_result" style="display:none;margin-top:6px">
         <div class="ai-note">AI 已解析，请确认以下字段（可直接修改）：</div>
         <div class="form-grid" style="margin-top:8px">
@@ -2399,6 +2457,11 @@ init();
           <div class="fld"><label>城市</label><input id="jd_city"></div>
           <div class="fld"><label>薪资范围</label><input id="jd_salary"></div>
           <div class="fld"><label>渠道来源</label><input id="jd_source"></div>
+          <div class="fld"><label>公司性质</label><select id="jd_nature"><option value="">（未标注）</option><option>央企</option><option>国企</option><option>上市</option><option>大厂</option><option>外企</option><option>中小</option></select></div>
+          <div class="fld"><label>行业</label><input id="jd_industry" list="industryList"></div>
+          <div class="fld"><label>学历要求</label><select id="jd_edu"><option value="">（未标注）</option><option>不限</option><option>大专</option><option>本科</option><option>硕士</option><option>博士</option></select></div>
+          <div class="fld"><label>面向届数</label><select id="jd_cohort"><option value="">（未标注）</option><option>不限</option><option>26届</option><option>27届</option><option>28届</option><option>29届</option></select></div>
+          <div class="fld full"><label>专业要求</label><input id="jd_majors" placeholder="AI 提取或手动填写，如：设计、新闻、中文"></div>
           <div class="fld full"><label>JD 链接</label><input id="jd_link" placeholder="https://..."></div>
           <div class="fld full"><label>备注（要求要点）</label><textarea id="jd_notes" rows="3"></textarea></div>
         </div>

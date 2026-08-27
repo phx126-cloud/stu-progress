@@ -118,6 +118,9 @@ const TABLE_DEFS = {
   '职位': [
     ['公司', 1], ['职位名称', 1], ['职位类型', 3, ['实习', '校招', '社招', '兼职']],
     ['城市', 1], ['薪资', 1], ['渠道', 1],
+    ['公司性质', 3, ['央企', '国企', '上市', '大厂', '外企', '中小']],
+    ['行业', 1], ['学历要求', 3, ['不限', '大专', '本科', '硕士', '博士']],
+    ['届数', 3, ['不限', '26届', '27届', '28届', '29届']], ['专业要求', 1],
     ['状态', 3, ['招聘中', '已关闭']], ['JD链接', 1], ['备注', 1], ['职位图片', 1]
   ],
   '投递': [
@@ -285,6 +288,7 @@ function jobFrom(r) {
     id: r.record_id,
     company: txt(f['公司']), title: txt(f['职位名称']), jobType: txt(f['职位类型']), city: txt(f['城市']),
     salary: txt(f['薪资']), source: txt(f['渠道']),
+    nature: txt(f['公司性质']), industry: txt(f['行业']), edu: txt(f['学历要求']), cohort: txt(f['届数']), majors: txt(f['专业要求']),
     status: txt(f['状态']) || '招聘中', link: txt(f['JD链接']), notes: txt(f['备注']),
     images: parseImgField(f['职位图片'])
   };
@@ -292,7 +296,8 @@ function jobFrom(r) {
 function jobFields(d) {
   return {
     '公司': d.company || '', '职位名称': d.title || '', '职位类型': d.jobType || '', '城市': d.city || '', '薪资': d.salary || '',
-    '渠道': d.source || '', '状态': d.status || '招聘中', 'JD链接': d.link || '', '备注': d.notes || '',
+    '渠道': d.source || '', '公司性质': d.nature || '', '行业': d.industry || '', '学历要求': d.edu || '', '届数': d.cohort || '', '专业要求': d.majors || '',
+    '状态': d.status || '招聘中', 'JD链接': d.link || '', '备注': d.notes || '',
     '职位图片': JSON.stringify((d.images && d.images.length) ? d.images : [])
   };
 }
@@ -566,9 +571,10 @@ async function aiTask(b, ctx) {
       const ids = await ensureTables();
       const jobs = (await allRecords(ids['职位'])).map(jobFrom).filter(j => (j.status || '招聘中') !== '已关闭');
       if (!jobs.length) return { ok: false, error: '职位库暂无在招职位，请先在管理端添加' };
-      const list = jobs.slice(0, 40).map((j, i) => ({ i, 公司: j.company, 职位: j.title, 城市: j.city || '', 类型: j.jobType || '', 薪资: j.salary || '', 要求: (j.notes || '').slice(0, 200) }));
+      const list = jobs.slice(0, 40).map((j, i) => ({ i, 公司: j.company, 职位: j.title, 城市: j.city || '', 类型: j.jobType || '', 薪资: j.salary || '', 行业: j.industry || '', 性质: j.nature || '', 学历: j.edu || '', 届数: j.cohort || '', 专业: (j.majors || '').slice(0, 80), 要求: (j.notes || '').slice(0, 200) }));
       const sys = '你是求职辅导导师，擅长为学员匹配职位。只输出严格 JSON 数组，不要 markdown 代码块、不要任何解释文字。';
-      const user = '学员画像：' + JSON.stringify({ 学校: s.school, 专业: s.major, 目标岗位: s.target, 期望城市: s.expectCity, 备注: (s.notes || '').slice(0, 200) }) + '\n\n职位列表：' + JSON.stringify(list) + '\n\n请为该学员匹配职位，输出 JSON 数组：[{"i":职位序号,"score":0到100的匹配分,"reason":"一句话推荐理由，结合学员背景与职位要求"}]。只保留 score>=50 的职位，按 score 从高到低排序，最多10条。';
+      const pref = b.industry ? '\n学员行业偏好：' + cut(b.industry, 40) + '（优先推荐该行业的岗位）' : '';
+      const user = '学员画像：' + JSON.stringify({ 学校: s.school, 专业: s.major, 目标岗位: s.target, 期望城市: s.expectCity, 备注: (s.notes || '').slice(0, 200) }) + pref + '\n\n职位列表：' + JSON.stringify(list) + '\n\n请为该学员匹配职位，输出 JSON 数组：[{"i":职位序号,"score":0到100的匹配分,"reason":"一句话推荐理由，结合学员背景与职位要求"}]。只保留 score>=50 的职位，按 score 从高到低排序，最多10条。';
       const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.2, maxTokens: 1600 });
       const arr = extractJSON(out);
       if (!Array.isArray(arr)) throw new Error('AI 返回格式异常，请重试');
@@ -576,7 +582,7 @@ async function aiTask(b, ctx) {
       for (const x of arr) {
         const j = jobs[x && x.i];
         if (!j || !Number.isFinite(Number(x.score))) continue;
-        picks.push({ id: j.id, company: j.company, title: j.title, jobType: j.jobType, city: j.city, salary: j.salary, link: j.link, score: Math.round(Number(x.score)), reason: String(x.reason || '').slice(0, 120) });
+        picks.push({ id: j.id, company: j.company, title: j.title, jobType: j.jobType, city: j.city, salary: j.salary, link: j.link, nature: j.nature || '', industry: j.industry || '', edu: j.edu || '', cohort: j.cohort || '', majors: j.majors || '', score: Math.round(Number(x.score)), reason: String(x.reason || '').slice(0, 120) });
       }
       picks.sort((a, b2) => b2.score - a.score);
       return { ok: true, list: picks.slice(0, 10) };
@@ -588,11 +594,11 @@ async function aiTask(b, ctx) {
       const jd = cut(b.jd, 6000);
       if (!jd.trim()) return { ok: false, error: '请粘贴 JD 文本' };
       const sys = '你是招聘信息解析助手。只输出严格 JSON 对象，不要 markdown 代码块、不要任何解释文字。';
-      const user = '从下面的招聘 JD 中提取结构化信息，输出 JSON：{"company":"公司名","title":"职位名称","jobType":"实习/校招/社招/兼职 四选一，判断不了留空","city":"城市","salary":"薪资范围如 20-35K·15薪，没有留空","source":"渠道来源如 Boss直聘/官网，没有留空","link":"JD链接，没有留空","notes":"职位要求要点摘要，100字内"}\n\nJD原文：\n' + jd;
-      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.1, maxTokens: 700 });
+      const user = '从下面的招聘 JD 中提取结构化信息，输出 JSON：{"company":"公司名","title":"职位名称","jobType":"实习/校招/社招/兼职 四选一，判断不了留空","city":"城市","salary":"薪资范围如 20-35K·15薪，没有留空","nature":"公司性质：央企/国企/上市/大厂/外企/中小 六选一，按公司背景判断（如国务院国资委=央企、地方国资=国企、股票代码/上市公司=上市、知名互联网大厂=大厂），判断不了留空","industry":"所属行业，如 互联网/游戏/美妆/快消/新能源/金融/教育/医疗/汽车/智能制造/电商，判断不了留空","edu":"学历要求：不限/大专/本科/硕士/博士，没提留空","majors":"专业要求，JD中提到的专业方向用顿号分隔如「设计、新闻、中文」，不限或没提留空","cohort":"面向届数：26届/27届/28届，没提留空","source":"渠道来源如 Boss直聘/官网，没有留空","link":"JD链接，没有留空","notes":"职位要求要点摘要，100字内"}\n\nJD原文：\n' + jd;
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.1, maxTokens: 900 });
       const g = extractJSON(out);
       const pick = v => String(v == null ? '' : v).trim().slice(0, 200);
-      return { ok: true, job: { company: pick(g.company), title: pick(g.title), jobType: pick(g.jobType), city: pick(g.city), salary: pick(g.salary), source: pick(g.source), link: pick(g.link), notes: pick(g.notes) } };
+      return { ok: true, job: { company: pick(g.company), title: pick(g.title), jobType: pick(g.jobType), city: pick(g.city), salary: pick(g.salary), nature: pick(g.nature), industry: pick(g.industry), edu: pick(g.edu), majors: pick(g.majors), cohort: pick(g.cohort), source: pick(g.source), link: pick(g.link), notes: pick(g.notes) } };
     }
 
     return { ok: false, error: '未知 AI 任务：' + (task || '(空)') };
