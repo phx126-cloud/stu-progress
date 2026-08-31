@@ -102,7 +102,11 @@ async function feishu(method, url, body) {
     let hint = '';
     if (j.code === 91402 || /NOTEXIST/i.test(j.msg)) hint = '（app_token 不对，或还没把应用添加为多维表格的文档应用）';
     if (j.code === 99991672 || /permission/i.test(j.msg)) hint = '（应用缺少多维表格权限 bitable:app，开通后需发布版本）';
-    throw new Error(`飞书接口错误 ${j.code}：${j.msg}${hint}`);
+    if (j.code === 1254042 || /not found/i.test(j.msg)) hint = '（记录不存在，可能已删除或在回收站）';
+    const err = new Error(`飞书 ${method} ${url.split('?')[0].split('/').slice(-2).join('/')} 失败 code=${j.code}：${j.msg}${hint}`);
+    err.feiShuCode = j.code;
+    err.feiShuMsg = j.msg;
+    throw err;
   }
   return j.data || {};
 }
@@ -766,12 +770,11 @@ async function handleApi(req, res) {
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
 
-    // 合并学员：在 dropId 记录的「备注」字段写"已合并到 keepId"标记，不真删数据（飞书 DELETE 反复拒，且 deleteEntity 会误删同名投递）
+    // 合并学员：完全不调飞书写操作（之前 DELETE/PUT 反复被飞书 server 拒），返回 record_id 让用户去飞书后台手动删除
     if (p === '/api/merge-student' && req.method === 'POST') {
       const b = await readBody(req);
-      const { keepId, dropId, deletePassword } = b;
+      const { keepId, dropId } = b;
       if (!keepId || !dropId || keepId === dropId) return json(res, { ok: false, error: '参数不合法' });
-      if (DELETE_PROTECTED && deletePassword !== DELETE_PASSWORD) return json(res, { ok: false, error: '删除密码错误', needDeletePwd: true }, 403);
       const ids = await ensureTables();
       const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
       if (!keep) return json(res, { ok: false, error: '保留记录不存在：' + keepId });
@@ -779,17 +782,8 @@ async function handleApi(req, res) {
       const keepName = txt(keep.fields['姓名']);
       const dropName = txt(drop.fields['姓名']);
       if (keepName && dropName && keepName !== dropName) return json(res, { ok: false, error: `两人姓名不同（${keepName} / ${dropName}），请人工确认后再合并` });
-      // 在 dropId 记录的「备注」前加一行"已合并"标记，便于在飞书后台筛选清理
-      const dropNotes = txt(drop.fields['备注']);
-      const stamp = new Date().toISOString().slice(0,10);
-      const newNotes = `[${stamp} 已合并到 ${keepName}（${keepId}），待管理员清理]\n${dropNotes}`.trim();
-      try{
-        await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/${dropId}`, { fields: { '备注': newNotes } });
-      }catch(e){
-        return json(res, { ok: false, error: '标记备注失败：' + (e.message||e) + ` | dropId=${dropId}` });
-      }
-      await auditLog('合并标记', `${dropName}→${keepName}`, `dropId=${dropId} 在备注中加合并标记（不真删，请管理员在飞书后台手动删除此学员记录）`, '管理员');
-      return json(res, { ok: true, name: keepName, action: 'marked', note: '已写"已合并"备注，请到飞书后台手动删除该学员记录' });
+      await auditLog('合并标记', `${dropName}→${keepName}`, `返回 dropId=${dropId}，不调飞书写操作（PUT/DELETE 反复被拒），请管理员在飞书后台手动删除该学员记录`, '管理员');
+      return json(res, { ok: true, name: keepName, dropId, keepId, manualAction: '请复制下方 record_id 到飞书后台搜索该学员记录并删除' });
     }
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);

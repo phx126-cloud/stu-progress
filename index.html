@@ -1280,23 +1280,57 @@ async function openDupModal(){
 async function doMergeAll(){
   const radios = document.querySelectorAll('#dupModalMask input[type="radio"]:checked');
   if(!radios.length){ toast('没有选中保留项'); return; }
-  const pwd = $('dupPwd').value;
-  let ok = 0, fail = 0, errs = [];
+  let ok = 0, fail = 0, errs = [], dropped = [];
   for(const radio of radios){
     const keepId = radio.dataset.keep, dropId = radio.dataset.drop;
     try{
-      const r = await fetch('/api/merge-student',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({ keepId, dropId, deletePassword: pwd }) });
+      const r = await fetch('/api/merge-student',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({ keepId, dropId }) });
       const j = await r.json();
-      if(j.ok) ok++;
+      if(j.ok){ ok++; dropped.push({ dropId, keepId, name: j.name }); }
       else { fail++; errs.push(j.error || `HTTP ${r.status}`); }
     }catch(e){ fail++; errs.push(e.message || '网络错误'); }
   }
-  // 把每条失败原因附在汇总 toast 里，方便一眼看到根因
+  // 成功后给个"飞书后台清理指引"，把所有待删 record_id 拼出来，方便复制
+  if(ok && dropped.length){
+    showCleanupGuide(dropped);
+    return;
+  }
   const tail = errs.length ? `。失败原因：${errs.join('；')}` : '';
-  toast(`合并完成：成功 ${ok}${fail?`，失败 ${fail}`:''}${tail}`, fail?null:null);
-  // 即使有失败也关闭弹窗；让用户能看到 banner 是否还在
+  toast(`合并完成：成功 ${ok}${fail?`，失败 ${fail}`:''}${tail}`);
   $('dupModalMask').classList.remove('show');
   await init();
+}
+function showCleanupGuide(dropped){
+  // 用一个新的引导 modal：列出所有待删 record_id + 一键复制按钮 + 飞书后台路径
+  let mask = $('cleanupGuideMask');
+  if(!mask){
+    mask = document.createElement('div');
+    mask.id = 'cleanupGuideMask';
+    mask.className = 'modal-mask show';
+    document.body.appendChild(mask);
+  }
+  const listHtml = dropped.map(d => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <span style="flex:1"><b>${esc(d.name||'?')}</b> 的重复记录</span>
+      <code style="background:#f8f9fc;padding:4px 8px;border-radius:6px;font-size:12px">${esc(d.dropId)}</code>
+      <button class="btn" onclick="navigator.clipboard.writeText('${esc(d.dropId)}');toast('已复制 record_id')">复制</button>
+    </div>
+  `).join('');
+  const allIds = dropped.map(d => d.dropId).join('\n');
+  mask.innerHTML = `
+    <div class="modal" style="max-width:min(620px,calc(100vw - 32px))">
+      <div class="modal-head"><h3>飞书后台手动清理指引</h3><button class="modal-close" onclick="$('cleanupGuideMask').remove();$('dupModalMask').classList.remove('show');init()">✕</button></div>
+      <div class="modal-body">
+        <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:12px;margin-bottom:14px;font-size:13px;color:#92400e">
+          ⚠️ <b>说明</b>：飞书 API 反复拒绝 DELETE/PUT 这条记录（"string did not match the expected pattern"），可能是 record 处于异常状态或字段类型校验失败。为安全起见，已改为<b>不调飞书写操作</b>，由你手动到飞书后台删除以下重复记录。投递未受影响（按姓名关联到保留项）。
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px">
+          <b>操作步骤</b>：飞书后台 → 打开多维表格（stu-progress）→ 「学员」表 → 顶部搜索栏粘贴下面任意一个 <code>record_id</code> → 选中记录 → 删除。
+        </div>
+        <div id="cleanupList">${listHtml}</div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="navigator.clipboard.writeText('${esc(allIds)}');toast('已复制 ${dropped.length} 条 record_id')">一键复制全部 record_id</button>
+      </div>
+    </div>`;
 }
 /* 兼容：投递记录在飞书中按姓名/公司职位关联，可能存在未匹配的情况 */
 function appStu(a){ return stuById(a.studentId)||{id:'x'+(a.studentName||'?'),name:a.studentName||'?'}; }
