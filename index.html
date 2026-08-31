@@ -1238,18 +1238,20 @@ async function openDupModal(){
     const html = Object.entries(groups).map(([keepId, list]) => {
       const keep = stus.find(s => s && s.id === keepId) || { name: list[0]?.name || '?', id: keepId };
       return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;padding:12px">
-        <div style="font-weight:600;margin-bottom:8px">学员「${esc(keep?.name || list[0]?.name || '?')}」（共 ${list.length} 条重复）</div>
+        <div style="font-weight:600;margin-bottom:8px">学员「${esc(keep?.name || list[0]?.name || '?')}」（共 ${list.length} 条重复，<span style="color:#059669">选中 = 保留</span>，未选 = 删除）</div>
         ${list.map(d => {
           const drop = stus.find(s => s && s.id === d.dropId) || { name: '?', id: d.dropId };
           const isKeepFirst = keepId===d.keepId;
-          return `<div style="border-radius:10px;padding:8px;margin-bottom:8px;background:${isKeepFirst?'#fffbeb':'transparent'};border:1px solid ${isKeepFirst?'#fde68a':'transparent'}">
+          return `<div style="border-radius:10px;padding:8px;margin-bottom:8px;background:${isKeepFirst?'#fffbeb':'#fef2f2'};border:1px solid ${isKeepFirst?'#fde68a':'#fecaca'}">
             <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
-              <input type="radio" name="merge_${keepId}_${d.dropId}" value="keep" data-keep="${keepId}" data-drop="${d.dropId}" ${isKeepFirst?'checked':''}>
-              <span style="flex:1">${avatarOf(keep,22)}<b>${esc(keep?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息更完整，推荐保留）</span></span>
+              <input type="radio" name="merge_${keepId}_${d.dropId}" value="keep" data-keep="${keepId}" data-drop="${d.dropId}" ${isKeepFirst?'checked':''} style="accent-color:#059669">
+              <span style="display:inline-block;width:46px;text-align:center;font-size:12px;font-weight:600;color:#059669">✅ 保留</span>
+              <span style="flex:1;display:flex;align-items:center;gap:8px">${avatarOf(keep,22)}<b>${esc(keep?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息更完整）</span></span>
             </label>
             <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
-              <input type="radio" name="merge_${keepId}_${d.dropId}" value="drop" data-keep="${d.dropId}" data-drop="${keepId}">
-              <span style="flex:1">${avatarOf(drop,22)}<b>${esc(drop?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息较少，将被删除）</span></span>
+              <input type="radio" name="merge_${keepId}_${d.dropId}" value="drop" data-keep="${d.dropId}" data-drop="${keepId}" style="accent-color:#dc2626">
+              <span style="display:inline-block;width:46px;text-align:center;font-size:12px;font-weight:600;color:#dc2626">🗑 删除</span>
+              <span style="flex:1;display:flex;align-items:center;gap:8px">${avatarOf(drop,22)}<b>${esc(drop?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息较少）</span></span>
             </label>
             <div style="font-size:12px;color:var(--text2);margin:4px 0 0 8px">原因：${esc(d.reason||'')}</div>
           </div>`;
@@ -1257,7 +1259,7 @@ async function openDupModal(){
       </div>`;
     }).join('');
     body.innerHTML = `
-      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">后端检测到的疑似重复学员（同名或同联系方式）。每组中选一条保留，其余将迁移其投递后删除。该操作会修改飞书数据，请确认后操作。</div>
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">后端检测到的疑似重复学员（同名或同联系方式）。每组中选一条 <b style="color:#059669">✅ 保留</b>，另一条会迁移其投递后被 <b style="color:#dc2626">🗑 删除</b>。默认已按"信息更完整"项推荐保留。该操作会修改飞书数据，请确认后操作。</div>
       <div>${html}</div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
         <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:6px">删除保护密码（配置了删除保护时必填）</label>
@@ -1265,7 +1267,7 @@ async function openDupModal(){
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn" onclick="$('dupModalMask').classList.remove('show')">取消</button>
-        <button id="dupMergeBtn" class="btn btn-primary">合并选中项</button>
+        <button id="dupMergeBtn" class="btn btn-primary">保留选中项 + 删除其它</button>
       </div>`;
     const mergeBtn = body.querySelector('#dupMergeBtn');
     if(mergeBtn){ mergeBtn.addEventListener('click', doMergeAll); }
