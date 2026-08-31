@@ -770,7 +770,7 @@ async function handleApi(req, res) {
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
 
-    // 合并学员：完全不调飞书写操作（之前 DELETE/PUT 反复被飞书 server 拒），返回 record_id 让用户去飞书后台手动删除
+    // 合并学员：直接删除重复的「学员」记录（batch_delete），投递按姓名自动关联保留项——不动投递
     if (p === '/api/merge-student' && req.method === 'POST') {
       const b = await readBody(req);
       const { keepId, dropId } = b;
@@ -778,12 +778,18 @@ async function handleApi(req, res) {
       const ids = await ensureTables();
       const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
       if (!keep) return json(res, { ok: false, error: '保留记录不存在：' + keepId });
-      if (!drop) return json(res, { ok: false, error: '待标记录不存在：' + dropId });
+      if (!drop) return json(res, { ok: false, error: '待删记录不存在（可能已删除）：' + dropId });
       const keepName = txt(keep.fields['姓名']);
       const dropName = txt(drop.fields['姓名']);
       if (keepName && dropName && keepName !== dropName) return json(res, { ok: false, error: `两人姓名不同（${keepName} / ${dropName}），请人工确认后再合并` });
-      await auditLog('合并标记', `${dropName}→${keepName}`, `返回 dropId=${dropId}，不调飞书写操作（PUT/DELETE 反复被拒），请管理员在飞书后台手动删除该学员记录`, '管理员');
-      return json(res, { ok: true, name: keepName, dropId, keepId, manualAction: '请复制下方 record_id 到飞书后台搜索该学员记录并删除' });
+      // 只删学员记录本身。千万不能走 deleteEntity——后者会连带删除所有同名投递（同名合并时会误删该学员全部投递）
+      try{
+        await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/batch_delete`, { records: [dropId] });
+      }catch(e){
+        return json(res, { ok: false, error: '删除重复学员失败：' + (e.message||e) });
+      }
+      await auditLog('合并', `${dropName}→${keepName}`, `删除重复学员记录 ${dropId}（投递未动，按姓名自动关联保留项）`, '管理员');
+      return json(res, { ok: true, name: keepName, dropped: dropId });
     }
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);
