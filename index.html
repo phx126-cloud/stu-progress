@@ -671,7 +671,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,.fld input:focus
       <div class="dash-alerts" id="dashAlerts" style="display:none"></div>
       <div id="dupBanner" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:12px;background:linear-gradient(95deg,#fef3c7,#fde68a);border:1px solid #f59e0b;color:#92400e;font-size:13px;align-items:center;gap:10px;justify-content:space-between">
         <span>⚠️ 检测到 <b id="dupCount">0</b> 名学员存在重复记录（同名/同联系方式），后端已临时去重。点此清理飞书里的脏数据：</span>
-        <button class="btn" style="background:#f59e0b;color:#fff;border:none" onclick="openDupModal()">查看并合并</button>
+        <button id="dupOpenBtn" class="btn" style="background:#f59e0b;color:#fff;border:none">查看并合并</button>
       </div>
       <div class="stats-grid" id="statsGrid"></div>
       <div class="followup" id="followUp"></div>
@@ -1201,6 +1201,7 @@ async function init(){
   updateSyncUI();
   paintIcons();
   renderDashboard();
+  bindDupBtn();
   const dash=$('view-dashboard'); if(dash){ dash.classList.remove('view-enter'); void dash.offsetWidth; dash.classList.add('view-enter'); }
   $('bootSkeleton')?.classList.add('hide');
 }
@@ -1214,62 +1215,65 @@ function renderDupBanner(){
   banner.style.display='flex';
   banner.querySelector('#dupCount').textContent = dups.length;
 }
+// 全局兜底：DOM 就绪后挂监听（兼容 banner 静态加载 + 异步 init）
+function bindDupBtn(){
+  const btn = $('dupOpenBtn'); if(!btn || btn._dupBound) return;
+  btn._dupBound = true;
+  btn.addEventListener('click', e => { e.preventDefault(); openDupModal(); });
+}
+// 脚本同步执行时立即尝试一次（页面已加载完毕的情况）
+if(document.readyState !== 'loading') bindDupBtn();
+else document.addEventListener('DOMContentLoaded', bindDupBtn);
 async function openDupModal(){
-  const dups = db._dups || [];
-  if(!dups.length){ toast('目前没有重复学员'); return; }
-  // 收集涉及到的学员 id → 完整记录（用于在弹窗中显示信息）
-  const ids = new Set();
-  dups.forEach(d => { ids.add(d.keepId); ids.add(d.dropId); });
-  const stus = db.students.filter(s => ids.has(s.id));
-  // 按 keepId 分组
-  const groups = {};
-  dups.forEach(d => { (groups[d.keepId] ||= []).push(d); });
-  const html = Object.entries(groups).map(([keepId, list]) => {
-    const keep = stus.find(s => s.id === keepId);
-    return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;padding:12px">
-      <div style="font-weight:600;margin-bottom:8px">学员「${esc(keep?.name || list[0].name)}」（共 ${list.length} 条重复）</div>
-      ${list.map(d => {
-        const drop = stus.find(s => s.id === d.dropId);
-        const isKeepFirst = keepId===d.keepId;
-        return `<div style="border-radius:10px;padding:8px;margin-bottom:8px;background:${isKeepFirst?'#fffbeb':'transparent'};border:1px solid ${isKeepFirst?'#fde68a':'transparent'}">
-          <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
-            <input type="radio" name="merge_${keepId}_${d.dropId}" value="keep" data-keep="${keepId}" data-drop="${d.dropId}" ${isKeepFirst?'checked':''}>
-            <span style="flex:1">${avatarOf(keep,22)}<b>${esc(keep?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息更完整，推荐保留）</span></span>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
-            <input type="radio" name="merge_${keepId}_${d.dropId}" value="drop" data-keep="${d.dropId}" data-drop="${keepId}">
-            <span style="flex:1">${avatarOf(drop,22)}<b>${esc(drop?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息较少，将被删除）</span></span>
-          </label>
-          <div style="font-size:12px;color:var(--text2);margin:4px 0 0 8px">原因：${esc(d.reason)}</div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }).join('');
-  // 渲染弹窗
-  let mask = $('dupModalMask');
-  if(!mask){
-    mask = document.createElement('div');
-    mask.id = 'dupModalMask';
-    mask.className = 'modal-mask';
-    mask.innerHTML = `<div class="modal" style="max-width:560px"><div class="modal-head"><h3>合并重复学员</h3><button class="modal-close" onclick="$('dupModalMask').remove()">✕</button></div>
-      <div class="modal-body" style="max-height:60vh;overflow-y:auto">
-        <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">后端检测到的疑似重复学员（同名或同联系方式）。每组中选一条保留，其余将迁移其投递后删除。该操作会修改飞书数据，请确认后操作。</div>
-        <div id="dupGroups">${html}</div>
-        <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
-          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:6px">删除保护密码（必需，配置了删除保护时）</label>
-          <input id="dupPwd" type="password" placeholder="留空则不填" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px">
-        </div>
+  try{
+    const dups = (db && db._dups) || [];
+    if(!dups.length){ toast('目前没有重复学员'); return; }
+    const mask = $('dupModalMask'); if(!mask){ console.error('dupModalMask 不存在'); return; }
+    const body = $('dupModalBody'); if(!body){ console.error('dupModalBody 不存在'); return; }
+    const ids = new Set();
+    dups.forEach(d => { ids.add(d.keepId); ids.add(d.dropId); });
+    const stus = db.students.filter(s => ids.has(s.id));
+    const groups = {};
+    dups.forEach(d => { (groups[d.keepId] = groups[d.keepId] || []).push(d); });
+    const html = Object.entries(groups).map(([keepId, list]) => {
+      const keep = stus.find(s => s.id === keepId);
+      return `<div style="margin-bottom:14px;border:1px solid var(--border);border-radius:12px;padding:12px">
+        <div style="font-weight:600;margin-bottom:8px">学员「${esc(keep?.name || list[0].name)}」（共 ${list.length} 条重复）</div>
+        ${list.map(d => {
+          const drop = stus.find(s => s.id === d.dropId);
+          const isKeepFirst = keepId===d.keepId;
+          return `<div style="border-radius:10px;padding:8px;margin-bottom:8px;background:${isKeepFirst?'#fffbeb':'transparent'};border:1px solid ${isKeepFirst?'#fde68a':'transparent'}">
+            <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
+              <input type="radio" name="merge_${keepId}_${d.dropId}" value="keep" data-keep="${keepId}" data-drop="${d.dropId}" ${isKeepFirst?'checked':''}>
+              <span style="flex:1">${avatarOf(keep,22)}<b>${esc(keep?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息更完整，推荐保留）</span></span>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer">
+              <input type="radio" name="merge_${keepId}_${d.dropId}" value="drop" data-keep="${d.dropId}" data-drop="${keepId}">
+              <span style="flex:1">${avatarOf(drop,22)}<b>${esc(drop?.name||'?')}</b> <span style="color:var(--text2);font-size:12px">（信息较少，将被删除）</span></span>
+            </label>
+            <div style="font-size:12px;color:var(--text2);margin:4px 0 0 8px">原因：${esc(d.reason)}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+    body.innerHTML = `
+      <div style="font-size:12.5px;color:var(--text2);margin-bottom:10px">后端检测到的疑似重复学员（同名或同联系方式）。每组中选一条保留，其余将迁移其投递后删除。该操作会修改飞书数据，请确认后操作。</div>
+      <div>${html}</div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+        <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:6px">删除保护密码（配置了删除保护时必填）</label>
+        <input id="dupPwd" type="password" placeholder="留空则不填" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px">
       </div>
-      <div class="modal-foot" style="padding:12px 18px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
-        <button class="btn" onclick="$('dupModalMask').remove()">取消</button>
-        <button class="btn btn-primary" onclick="doMergeAll()">合并选中项</button>
-      </div>
-    </div>`;
-    document.body.appendChild(mask);
-  } else {
-    mask.querySelector('#dupGroups').innerHTML = html;
+      <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="$('dupModalMask').classList.remove('show')">取消</button>
+        <button id="dupMergeBtn" class="btn btn-primary">合并选中项</button>
+      </div>`;
+    const mergeBtn = body.querySelector('#dupMergeBtn');
+    if(mergeBtn){ mergeBtn.addEventListener('click', doMergeAll); }
+    mask.classList.add('show');
+  }catch(e){
+    console.error('openDupModal 异常：', e);
+    toast('打开合并面板失败：' + (e?.message || e));
   }
-  mask.classList.add('show');
 }
 async function doMergeAll(){
   const radios = document.querySelectorAll('#dupModalMask input[type="radio"]:checked');
@@ -1285,7 +1289,7 @@ async function doMergeAll(){
     }catch(e){ fail++; }
   }
   toast(`合并完成：成功 ${ok}${fail?`，失败 ${fail}`:''}`);
-  $('dupModalMask').remove();
+  $('dupModalMask').classList.remove('show');
   await init();
 }
 /* 兼容：投递记录在飞书中按姓名/公司职位关联，可能存在未匹配的情况 */
@@ -2586,6 +2590,13 @@ init();
       <button class="btn btn-primary" id="jdParseBtn" onclick="runJdParse()">解析</button>
       <button class="btn btn-primary" id="jdSaveBtn" style="display:none" onclick="confirmJdSave()">确认入库</button>
     </div>
+  </div>
+</div>
+<!-- 合并重复学员弹窗（静态预埋，避免动态 append 时序问题） -->
+<div class="modal-mask" id="dupModalMask" onclick="if(event.target===this)$('dupModalMask').classList.remove('show')">
+  <div class="modal" style="max-width:min(560px,calc(100vw - 32px))">
+    <div class="modal-head"><h3>合并重复学员</h3><button class="modal-close" onclick="$('dupModalMask').classList.remove('show')">✕</button></div>
+    <div class="modal-body" id="dupModalBody"></div>
   </div>
 </div>
 </body>
