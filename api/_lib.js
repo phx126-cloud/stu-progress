@@ -323,7 +323,24 @@ function appFields(d, names) {
 async function getData() {
   const ids = await ensureTables();
   const [sr, jr, ar] = await Promise.all([allRecords(ids['学员']), allRecords(ids['职位']), allRecords(ids['投递'])]);
-  const students = sr.map(stuFrom);
+  const rawStudents = sr.map(stuFrom);
+  // 同名/同联系方式视为疑似重复：仅保留"信息更完整且最新"的一份（不删飞书数据，可回滚）
+  const seen = new Map(); const dups = [];
+  const scored = rawStudents.map(s => {
+    const fill = ['contact','school','major','target','resumeUrl','portfolio','notes','expectCity'].reduce((n,k)=>n+(s[k]?1:0),0);
+    return { s, fill, ts: s.createdAt || '' };
+  }).sort((a,b)=> b.fill-a.fill || (b.ts>a.ts?1:b.ts<a.ts?-1:0));
+  for(const {s} of scored){
+    const key = (s.contact||'').trim() || s.name; // 联系 > 姓名
+    if(!s.name){ seen.set('__'+s.id, s); continue; }
+    if(seen.has(key)){
+      dups.push({ keepId: seen.get(key).id, dropId: s.id, name: s.name, reason: (s.contact && seen.get(key).contact === s.contact) ? 'same contact' : 'same name' });
+    } else {
+      seen.set(key, s);
+    }
+  }
+  // 把"保留项"放前面，保证 apps.studentName 关联到第一条
+  const students = [...seen.values()];
   const jobs = jr.map(jobFrom);
   const apps = ar.map(appFrom).map(a => {
     const s = students.find(x => x.name === a.studentName);
@@ -334,7 +351,7 @@ async function getData() {
     action: txt(r.fields['操作']), target: txt(r.fields['对象']), detail: txt(r.fields['详情']),
     actor: txt(r.fields['操作人']), at: txt(r.fields['时间']), id: r.record_id
   })).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 100);
-  return { students, jobs, apps, logs };
+  return { students, jobs, apps, logs, _dups: dups };
 }
 
 // 表名映射 + 保存时字段白名单：只写飞书表实际存在的字段，避免旧表缺列报错
@@ -748,6 +765,30 @@ async function handleApi(req, res) {
     if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
+
+    // 合并学员：迁移投递.studentId → keepId，删除 dropId
+    if (p === '/api/merge-student' && req.method === 'POST') {
+      const b = await readBody(req);
+      const { keepId, dropId, deletePassword } = b;
+      if (!keepId || !dropId || keepId === dropId) return json(res, { ok: false, error: '参数不合法' });
+      if (DELETE_PROTECTED && deletePassword !== DELETE_PASSWORD) return json(res, { ok: false, error: '删除密码错误', needDeletePwd: true }, 403);
+      const ids = await ensureTables();
+      const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
+      if (!keep || !drop) return json(res, { ok: false, error: '记录不存在' });
+      const keepName = txt(keep.fields['姓名']);
+      const dropName = txt(drop.fields['姓名']);
+      // 迁移该 dropId 关联的投递：studentId → keepId；studentName → keepName（保持一致）
+      const allApps = await allRecords(ids['投递']);
+      const targets = allApps.filter(r => r.fields['学员ID'] === dropId || (dropName && txt(r.fields['学员姓名']) === dropName && !r.fields['学员ID']));
+      let moved = 0;
+      for (const ar of targets) {
+        await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['投递']}/records/${ar.record_id}`, { fields: { '学员ID': keepId, '学员姓名': keepName } });
+        moved++;
+      }
+      await deleteEntity({ type: 'student', id: dropId });
+      await auditLog('合并', `${dropName}→${keepName}`, `迁移 ${moved} 条投递后删除重复学员 ${dropId}`, '管理员');
+      return json(res, { ok: true, moved });
+    }
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);
       if (DELETE_PROTECTED && b.deletePassword !== DELETE_PASSWORD) {
