@@ -1281,16 +1281,20 @@ async function doMergeAll(){
   const radios = document.querySelectorAll('#dupModalMask input[type="radio"]:checked');
   if(!radios.length){ toast('没有选中保留项'); return; }
   const pwd = $('dupPwd').value;
-  let ok = 0, fail = 0;
+  let ok = 0, fail = 0, errs = [];
   for(const radio of radios){
     const keepId = radio.dataset.keep, dropId = radio.dataset.drop;
     try{
       const r = await fetch('/api/merge-student',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({ keepId, dropId, deletePassword: pwd }) });
       const j = await r.json();
-      if(j.ok) ok++; else { fail++; toast('合并失败：'+(j.error||'')); }
-    }catch(e){ fail++; }
+      if(j.ok) ok++;
+      else { fail++; errs.push(j.error || `HTTP ${r.status}`); }
+    }catch(e){ fail++; errs.push(e.message || '网络错误'); }
   }
-  toast(`合并完成：成功 ${ok}${fail?`，失败 ${fail}`:''}`);
+  // 把每条失败原因附在汇总 toast 里，方便一眼看到根因
+  const tail = errs.length ? `。失败原因：${errs.join('；')}` : '';
+  toast(`合并完成：成功 ${ok}${fail?`，失败 ${fail}`:''}${tail}`, fail?null:null);
+  // 即使有失败也关闭弹窗；让用户能看到 banner 是否还在
   $('dupModalMask').classList.remove('show');
   await init();
 }
