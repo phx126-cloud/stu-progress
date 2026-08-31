@@ -1280,7 +1280,7 @@ async function doMergeAll(){
   for(const radio of radios){
     const keepId = radio.dataset.keep, dropId = radio.dataset.drop;
     try{
-      const r = await fetch('/api/merge-student',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({ keepId, dropId }) });
+      const r = await fetch('/api/delete',{ method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify({ type:'merge-student', keepId, dropId }) });
       const j = await r.json();
       if(j.ok){ ok++; okNames.push(j.name); }
       else { fail++; errs.push(j.error || `HTTP ${r.status}`); }

@@ -770,29 +770,28 @@ async function handleApi(req, res) {
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
 
-    // 合并学员：直接删除重复的「学员」记录（batch_delete），投递按姓名自动关联保留项——不动投递
-    if (p === '/api/merge-student' && req.method === 'POST') {
-      const b = await readBody(req);
-      const { keepId, dropId } = b;
-      if (!keepId || !dropId || keepId === dropId) return json(res, { ok: false, error: '参数不合法' });
-      const ids = await ensureTables();
-      const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
-      if (!keep) return json(res, { ok: false, error: '保留记录不存在：' + keepId });
-      if (!drop) return json(res, { ok: false, error: '待删记录不存在（可能已删除）：' + dropId });
-      const keepName = txt(keep.fields['姓名']);
-      const dropName = txt(drop.fields['姓名']);
-      if (keepName && dropName && keepName !== dropName) return json(res, { ok: false, error: `两人姓名不同（${keepName} / ${dropName}），请人工确认后再合并` });
-      // 只删学员记录本身。千万不能走 deleteEntity——后者会连带删除所有同名投递（同名合并时会误删该学员全部投递）
-      try{
-        await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/batch_delete`, { records: [dropId] });
-      }catch(e){
-        return json(res, { ok: false, error: '删除重复学员失败：' + (e.message||e) });
-      }
-      await auditLog('合并', `${dropName}→${keepName}`, `删除重复学员记录 ${dropId}（投递未动，按姓名自动关联保留项）`, '管理员');
-      return json(res, { ok: true, name: keepName, dropped: dropId });
-    }
+    // 合并学员（挂在 /api/delete 路由下，避免新增 Vercel 函数文件）：直接删除重复的「学员」记录（batch_delete），投递按姓名自动关联保留项——不动投递
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);
+      if (b.type === 'merge-student') {
+        const { keepId, dropId } = b;
+        if (!keepId || !dropId || keepId === dropId) return json(res, { ok: false, error: '参数不合法' });
+        const ids = await ensureTables();
+        const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
+        if (!keep) return json(res, { ok: false, error: '保留记录不存在：' + keepId });
+        if (!drop) return json(res, { ok: false, error: '待删记录不存在（可能已删除）：' + dropId });
+        const keepName = txt(keep.fields['姓名']);
+        const dropName = txt(drop.fields['姓名']);
+        if (keepName && dropName && keepName !== dropName) return json(res, { ok: false, error: `两人姓名不同（${keepName} / ${dropName}），请人工确认后再合并` });
+        // 只删学员记录本身。千万不能走 deleteEntity——后者会连带删除所有同名投递（同名合并时会误删该学员全部投递）
+        try{
+          await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/batch_delete`, { records: [dropId] });
+        }catch(e){
+          return json(res, { ok: false, error: '删除重复学员失败：' + (e.message||e) });
+        }
+        await auditLog('合并', `${dropName}→${keepName}`, `删除重复学员记录 ${dropId}（投递未动，按姓名自动关联保留项）`, '管理员');
+        return json(res, { ok: true, name: keepName, dropped: dropId });
+      }
       if (DELETE_PROTECTED && b.deletePassword !== DELETE_PASSWORD) {
         return json(res, { ok: false, error: '删除密码错误', needDeletePwd: true }, 403);
       }
