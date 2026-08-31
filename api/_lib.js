@@ -766,7 +766,7 @@ async function handleApi(req, res) {
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
 
-    // 合并学员：只删除重复的「学员」记录，投递保留（投递按姓名关联，删除后自动指向保留项）
+    // 合并学员：在 dropId 记录的「备注」字段写"已合并到 keepId"标记，不真删数据（飞书 DELETE 反复拒，且 deleteEntity 会误删同名投递）
     if (p === '/api/merge-student' && req.method === 'POST') {
       const b = await readBody(req);
       const { keepId, dropId, deletePassword } = b;
@@ -775,19 +775,21 @@ async function handleApi(req, res) {
       const ids = await ensureTables();
       const [keep, drop] = await Promise.all([getRecord(ids['学员'], keepId).catch(()=>null), getRecord(ids['学员'], dropId).catch(()=>null)]);
       if (!keep) return json(res, { ok: false, error: '保留记录不存在：' + keepId });
-      if (!drop) return json(res, { ok: false, error: '待删记录不存在：' + dropId });
+      if (!drop) return json(res, { ok: false, error: '待标记录不存在：' + dropId });
       const keepName = txt(keep.fields['姓名']);
       const dropName = txt(drop.fields['姓名']);
       if (keepName && dropName && keepName !== dropName) return json(res, { ok: false, error: `两人姓名不同（${keepName} / ${dropName}），请人工确认后再合并` });
-      // 直接删学员记录。投递表按姓名关联，重复学员删后投递自动指向保留项——不做迁移，避免误删
-      // 用批量删除接口（飞书更稳定），单条 DELETE 在某些版本下会拒
+      // 在 dropId 记录的「备注」前加一行"已合并"标记，便于在飞书后台筛选清理
+      const dropNotes = txt(drop.fields['备注']);
+      const stamp = new Date().toISOString().slice(0,10);
+      const newNotes = `[${stamp} 已合并到 ${keepName}（${keepId}），待管理员清理]\n${dropNotes}`.trim();
       try{
-        await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/batch_delete`, { records: [dropId] });
+        await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['学员']}/records/${dropId}`, { fields: { '备注': newNotes } });
       }catch(e){
-        return json(res, { ok: false, error: '删除重复学员失败：' + (e.message||e) + ` | dropId=${dropId}` });
+        return json(res, { ok: false, error: '标记备注失败：' + (e.message||e) + ` | dropId=${dropId}` });
       }
-      await auditLog('合并', `${dropName}→${keepName}`, `删除重复学员记录 ${dropId}（投递保留，按姓名自动关联）`, '管理员');
-      return json(res, { ok: true, name: keepName });
+      await auditLog('合并标记', `${dropName}→${keepName}`, `dropId=${dropId} 在备注中加合并标记（不真删，请管理员在飞书后台手动删除此学员记录）`, '管理员');
+      return json(res, { ok: true, name: keepName, action: 'marked', note: '已写"已合并"备注，请到飞书后台手动删除该学员记录' });
     }
     if (p === '/api/delete' && req.method === 'POST') {
       const b = await readBody(req);
