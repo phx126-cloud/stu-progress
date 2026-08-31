@@ -766,7 +766,7 @@ async function handleApi(req, res) {
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
     if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
 
-    // 合并学员：迁移投递.studentId → keepId，删除 dropId
+    // 合并学员：把 dropId 学员关联的投递「学员姓名」改为 keepName，再删除 dropId
     if (p === '/api/merge-student' && req.method === 'POST') {
       const b = await readBody(req);
       const { keepId, dropId, deletePassword } = b;
@@ -777,16 +777,18 @@ async function handleApi(req, res) {
       if (!keep || !drop) return json(res, { ok: false, error: '记录不存在' });
       const keepName = txt(keep.fields['姓名']);
       const dropName = txt(drop.fields['姓名']);
-      // 迁移该 dropId 关联的投递：studentId → keepId；studentName → keepName（保持一致）
+      // 投递表只存「学员姓名」字符串（无「学员ID」字段），按姓名匹配需迁移的投递
       const allApps = await allRecords(ids['投递']);
-      const targets = allApps.filter(r => r.fields['学员ID'] === dropId || (dropName && txt(r.fields['学员姓名']) === dropName && !r.fields['学员ID']));
-      let moved = 0;
+      const targets = allApps.filter(r => dropName && txt(r.fields['学员姓名']) === dropName);
+      let moved = 0, lastErr = null;
       for (const ar of targets) {
-        await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['投递']}/records/${ar.record_id}`, { fields: { '学员ID': keepId, '学员姓名': keepName } });
-        moved++;
+        try{
+          await feishu('PUT', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['投递']}/records/${ar.record_id}`, { fields: { '学员姓名': keepName } });
+          moved++;
+        }catch(e){ lastErr = e.message || String(e); }
       }
       await deleteEntity({ type: 'student', id: dropId });
-      await auditLog('合并', `${dropName}→${keepName}`, `迁移 ${moved} 条投递后删除重复学员 ${dropId}`, '管理员');
+      await auditLog('合并', `${dropName}→${keepName}`, `迁移 ${moved} 条投递后删除重复学员 ${dropId}${lastErr?`（迁移告警：${lastErr}）`:''}`, '管理员');
       return json(res, { ok: true, moved });
     }
     if (p === '/api/delete' && req.method === 'POST') {
