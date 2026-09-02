@@ -1,7 +1,7 @@
 {
   "version": 2,
   "functions": {
-    "api/*.js": { "maxDuration": 30 }
+    "api/*.js": { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/api/student-login", "destination": "/api/student.js" },

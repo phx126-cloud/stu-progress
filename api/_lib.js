@@ -544,7 +544,7 @@ async function llmOnce(messages, opts, key, timeoutMs) {
     if (!c || !c.content) { const e = new Error('AI 返回内容为空'); e.empty = true; throw e; }
     return c.content;
   } catch (e) {
-    if (e && e.name === 'AbortError') throw new Error('AI 响应超时，请稍后重试');
+    if (e && e.name === 'AbortError') { const err = new Error('AI 响应超时，请稍后重试'); err.timeout = true; throw err; }
     throw e;
   } finally { clearTimeout(timer); }
 }
@@ -561,13 +561,13 @@ async function llmChat(messages, opts = {}) {
   try {
     return await llmOnce(messages, opts, key, 25000);
   } catch (e) {
-    // 免费模型限流（429）或偶发空内容：仅在快速失败时自动重试 1 次（总耗时控制在函数 30s 上限内）
-    const retryable = (e && e.status === 429) || (e && e.empty);
+    // 免费模型限流（429）、偶发空内容或超时：自动重试 1 次（maxDuration=60s 内完成两次调用）
+    const retryable = (e && e.status === 429) || (e && e.empty) || (e && e.timeout);
     if (!retryable) throw e;
     if (e && e.status === 429 && Date.now() - t0 > 8000) throw new Error(rateLimitMsg);
     await new Promise(r => setTimeout(r, 2500));
     try {
-      return await llmOnce(messages, opts, key, 18000);
+      return await llmOnce(messages, opts, key, 22000);
     } catch (e2) {
       if (e2 && e2.status === 429) throw new Error(rateLimitMsg);
       if (e2 && e2.empty) throw new Error('AI 返回内容为空，请重试');
@@ -715,8 +715,8 @@ async function aiTask(b, ctx) {
       const jd = cut(b.jd, 6000);
       if (!jd.trim()) return { ok: false, error: '请粘贴 JD 或职位描述' };
       const sys = '你是资深面试官兼求职辅导教练，熟悉中国互联网及各行业校招/社招面试。只输出严格 JSON 数组，不要 markdown 代码块、不要任何解释文字。';
-      const user = '基于下面的职位 JD，生成 10 道最可能在面试中被问到的问题。输出 JSON 数组，每项：{"q":"面试问题","type":"分类：专业技能/项目深挖/行为面/HR面/反问环节 五选一","a":"参考回答要点，150字内，给答题框架和具体话术方向","tip":"加分提示（30字内）"}。要求：专业技能4题、项目深挖2题、行为面2题、HR面1题、反问环节建议1题。问题要贴合 JD 的具体要求，不要泛泛而谈。\n\nJD：\n' + jd;
-      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.5, maxTokens: 3000 });
+      const user = '基于下面的职位 JD，生成 10 道最可能在面试中被问到的问题。输出 JSON 数组，每项：{"q":"面试问题","type":"分类：专业技能/项目深挖/行为面/HR面/反问环节 五选一","a":"参考回答要点，100字内，给答题框架和具体话术方向","tip":"加分提示（25字内）"}。要求：专业技能4题、项目深挖2题、行为面2题、HR面1题、反问环节建议1题。问题要贴合 JD 的具体要求，不要泛泛而谈。\n\nJD：\n' + jd;
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.5, maxTokens: 2600 });
       const arr = extractJSON(out);
       if (!Array.isArray(arr)) throw new Error('AI 返回格式异常，请重试');
       const TYPES = ['专业技能', '项目深挖', '行为面', 'HR面', '反问环节'];
