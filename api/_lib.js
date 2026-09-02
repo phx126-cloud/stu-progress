@@ -128,7 +128,7 @@ const TABLE_DEFS = {
     ['状态', 3, ['招聘中', '已关闭']], ['JD链接', 1], ['备注', 1], ['职位图片', 1]
   ],
   '投递': [
-    ['学员姓名', 1], ['公司', 1], ['职位名称', 1],
+    ['学员姓名', 1], ['学员ID', 1], ['公司', 1], ['职位名称', 1],
     ['阶段', 3, ['待投递', '已投递', '笔试', '面试', 'Offer', '未通过']],
     ['投递日期', 1], ['跟进日期', 1], ['下一步行动', 1], ['备注', 1], ['更新日期', 1], ['阶段变更时间', 1]
   ],
@@ -309,7 +309,7 @@ function appFrom(r) {
   const f = r.fields || {};
   return {
     id: r.record_id,
-    studentName: txt(f['学员姓名']), company: txt(f['公司']), jobTitle: txt(f['职位名称']),
+    studentName: txt(f['学员姓名']), studentId: txt(f['学员ID']), company: txt(f['公司']), jobTitle: txt(f['职位名称']),
     stage: txt(f['阶段']) || '待投递', appliedAt: txt(f['投递日期']), followUpDate: txt(f['跟进日期']),
     next: txt(f['下一步行动']), notes: txt(f['备注']), updatedAt: txt(f['更新日期']),
     stageChangedAt: txt(f['阶段变更时间'])
@@ -317,7 +317,7 @@ function appFrom(r) {
 }
 function appFields(d, names) {
   return {
-    '学员姓名': names.studentName || '', '公司': names.company || '', '职位名称': names.jobTitle || '',
+    '学员姓名': names.studentName || '', '学员ID': d.studentId || names.studentId || '', '公司': names.company || '', '职位名称': names.jobTitle || '',
     '阶段': d.stage || '待投递', '投递日期': d.appliedAt || '',
     '跟进日期': d.followUpDate || '', '下一步行动': d.next || '', '备注': d.notes || '', '更新日期': d.updatedAt || today(),
     '阶段变更时间': d.stageChangedAt || ''
@@ -347,7 +347,8 @@ async function getData() {
   const students = [...seen.values()];
   const jobs = jr.map(jobFrom);
   const apps = ar.map(appFrom).map(a => {
-    const s = students.find(x => x.name === a.studentName);
+    // 关联学员：学员ID 优先（根治同名软关联隐患），ID 缺失或失效时按姓名兜底
+    const s = students.find(x => x.id === a.studentId) || students.find(x => x.name === a.studentName);
     const j = jobs.find(x => x.company === a.company && x.title === a.jobTitle);
     return { ...a, studentId: s ? s.id : '', jobId: j ? j.id : '' };
   });
@@ -397,7 +398,7 @@ async function saveEntity({ type, id, data }) {
   else if (type === 'job') { tid = ids['职位']; fields = jobFields(data); }
   else if (type === 'app') {
     tid = ids['投递'];
-    const names = { studentName: data.studentName || '', company: data.company || '', jobTitle: data.jobTitle || '' };
+    const names = { studentName: data.studentName || '', studentId: data.studentId || '', company: data.company || '', jobTitle: data.jobTitle || '' };
     if (data.studentId) {
       try { const r = await getRecord(ids['学员'], data.studentId); names.studentName = txt(r.fields['姓名']); } catch (e) {}
     }
@@ -435,7 +436,11 @@ async function deleteEntity({ type, id }) {
     delTarget = name || '学员';
     if (name) {
       const apps = await allRecords(ids['投递']);
-      for (const a of apps) if (txt(a.fields['学员姓名']) === name) await del(ids['投递'], a.record_id);
+      for (const a of apps) {
+        // 级联删除：有学员ID按ID精确匹配；老数据无ID时按姓名兜底
+        const sid = txt(a.fields['学员ID']);
+        if (sid ? sid === id : txt(a.fields['学员姓名']) === name) await del(ids['投递'], a.record_id);
+      }
     }
     await del(ids['学员'], id);
   } else if (type === 'job') {
@@ -473,6 +478,34 @@ async function migrate(local) {
   });
   await batchCreate(ids['投递'], appRecords);
   return { students: students.length, jobs: jobs.length, apps: apps.length };
+}
+
+/* ---------------- 投递表「学员ID」历史数据回填 ----------------
+ * 为所有缺学员ID的投递记录按姓名匹配补写学员ID（幂等，可重复执行）。
+ * 同名多条时选"字段最完整"的那条（与 getData 去重口径一致）。
+ */
+async function backfillAppStudentId() {
+  const ids = await ensureTables();
+  const [srs, ars] = await Promise.all([allRecords(ids['学员']), allRecords(ids['投递'])]);
+  const byName = {};
+  for (const r of srs) {
+    const n = txt(r.fields['姓名']);
+    if (!n) continue;
+    const f = r.fields || {};
+    const fill = ['联系方式', '学校', '专业', '目标岗位', '简历链接', '备注', '期望城市'].filter(k => txt(f[k])).length;
+    if (!byName[n] || fill > byName[n].fill) byName[n] = { id: r.record_id, fill };
+  }
+  const updates = [];
+  for (const a of ars) {
+    if (txt(a.fields['学员ID'])) continue;
+    const name = txt(a.fields['学员姓名']);
+    if (!name || !byName[name]) continue;
+    updates.push({ record_id: a.record_id, fields: { '学员ID': byName[name].id } });
+  }
+  for (let i = 0; i < updates.length; i += 100) {
+    await feishu('POST', `/bitable/v1/apps/${FEISHU_APP_TOKEN}/tables/${ids['投递']}/records/batch_update`, { records: updates.slice(i, i + 100) });
+  }
+  return updates.length;
 }
 
 /* ---------------- 请求处理 ---------------- */
@@ -654,6 +687,41 @@ async function aiTask(b, ctx) {
       return { ok: true, list };
     }
 
+    /* --- 任务6：简历诊断报告（简历 + JD → 结构化诊断） --- */
+    if (task === 'resume-diagnose') {
+      const resume = cut(b.resume, 9000), jd = cut(b.jd, 6000);
+      if (!resume.trim() || !jd.trim()) return { ok: false, error: '请同时提供简历内容和目标 JD' };
+      const sys = '你是资深简历诊断专家，为应届生求职者做简历与岗位匹配度诊断。只输出严格 JSON 对象，不要 markdown 代码块、不要任何解释文字。严禁编造简历中不存在的内容。';
+      const user = '请诊断下面这份简历与目标 JD 的匹配情况，输出 JSON：{"score":0到100的整数匹配分,"verdict":"一句话总评（30字内，指出最关键的问题或亮点）","strengths":["优势点，最多3条，每条20字内"],"gaps":[{"kw":"JD要求但简历缺失的关键词/能力","why":"为什么这个要求重要（25字内）","fix":"具体补救建议（30字内）"}],"rewrites":[{"from":"简历原文中的一句表述（原样摘录）","to":"改进后的写法（STAR结构、量化成果）"}],"actions":["接下来最该做的3件事，按优先级"]}。gaps 最多 5 条，rewrites 最多 3 条。\n\n目标 JD：\n' + jd + '\n\n简历内容：\n' + resume;
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.3, maxTokens: 2200 });
+      const g = extractJSON(out);
+      const pick = (v, n) => String(v == null ? '' : v).slice(0, n);
+      return { ok: true, report: {
+        score: Math.max(0, Math.min(100, Math.round(Number(g.score) || 0))),
+        verdict: pick(g.verdict, 60),
+        strengths: (Array.isArray(g.strengths) ? g.strengths : []).slice(0, 3).map(x => pick(x, 60)),
+        gaps: (Array.isArray(g.gaps) ? g.gaps : []).slice(0, 5).map(x => ({ kw: pick(x.kw, 40), why: pick(x.why, 60), fix: pick(x.fix, 80) })).filter(x => x.kw),
+        rewrites: (Array.isArray(g.rewrites) ? g.rewrites : []).slice(0, 3).map(x => ({ from: pick(x.from, 120), to: pick(x.to, 160) })).filter(x => x.from && x.to),
+        actions: (Array.isArray(g.actions) ? g.actions : []).slice(0, 3).map(x => pick(x, 60))
+      } };
+    }
+
+    /* --- 任务7：面试问答生成（JD → 高频面试题 + 参考回答） --- */
+    if (task === 'interview-qa') {
+      const jd = cut(b.jd, 6000);
+      if (!jd.trim()) return { ok: false, error: '请粘贴 JD 或职位描述' };
+      const sys = '你是资深面试官兼求职辅导教练，熟悉中国互联网及各行业校招/社招面试。只输出严格 JSON 数组，不要 markdown 代码块、不要任何解释文字。';
+      const user = '基于下面的职位 JD，生成 10 道最可能在面试中被问到的问题。输出 JSON 数组，每项：{"q":"面试问题","type":"分类：专业技能/项目深挖/行为面/HR面/反问环节 五选一","a":"参考回答要点，150字内，给答题框架和具体话术方向","tip":"加分提示（30字内）"}。要求：专业技能4题、项目深挖2题、行为面2题、HR面1题、反问环节建议1题。问题要贴合 JD 的具体要求，不要泛泛而谈。\n\nJD：\n' + jd;
+      const out = await llmChat([{ role: 'system', content: sys }, { role: 'user', content: user }], { temperature: 0.5, maxTokens: 3000 });
+      const arr = extractJSON(out);
+      if (!Array.isArray(arr)) throw new Error('AI 返回格式异常，请重试');
+      const TYPES = ['专业技能', '项目深挖', '行为面', 'HR面', '反问环节'];
+      const pick = (v, n) => String(v == null ? '' : v).slice(0, n);
+      const list = arr.map(x => ({ q: pick(x.q, 120), type: TYPES.includes(x.type) ? x.type : '专业技能', a: pick(x.a, 400), tip: pick(x.tip, 60) })).filter(x => x.q).slice(0, 12);
+      if (!list.length) throw new Error('AI 返回内容为空，请重试');
+      return { ok: true, list };
+    }
+
     return { ok: false, error: '未知 AI 任务：' + (task || '(空)') };
   } catch (e) {
     return { ok: false, error: (e && e.message) || 'AI 调用失败', aiNotConfigured: !!(e && e.aiNotConfigured) };
@@ -768,7 +836,12 @@ async function handleApi(req, res) {
 
     if (p === '/api/data' && req.method === 'GET') return json(res, { ok: true, data: await getData(), deleteProtected: DELETE_PROTECTED });
     if (p === '/api/save' && req.method === 'POST') { const r = await saveEntity(await readBody(req)); return json(res, { ok: true, id: r.id }); }
-    if (p === '/api/repair' && req.method === 'POST') { await repairTables(); return json(res, { ok: true }); }
+    if (p === '/api/repair' && req.method === 'POST') {
+      await repairTables();
+      let backfilled = 0;
+      try { backfilled = await backfillAppStudentId(); } catch (e) { console.warn('回填学员ID失败：', e.message); }
+      return json(res, { ok: true, backfilled });
+    }
 
     // 合并学员（挂在 /api/delete 路由下，避免新增 Vercel 函数文件）：直接删除重复的「学员」记录（batch_delete），投递按姓名自动关联保留项——不动投递
     if (p === '/api/delete' && req.method === 'POST') {

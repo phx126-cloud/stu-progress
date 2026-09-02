@@ -599,6 +599,55 @@ body,.sidebar,.main,.card,.panel,.modal,.stat-card,.stu-card,.kb-card,.nav-item,
 .ai-note{font-size:12.5px;color:var(--primary);background:var(--primary-light);border-radius:8px;padding:8px 12px}
 [data-theme="dark"] .ai-out{background:rgba(255,255,255,.03)}
 
+/* ===== 简历诊断报告 ===== */
+.diag-head{display:flex;gap:18px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.diag-score-wrap{position:relative;width:92px;height:92px;flex-shrink:0}
+.diag-score-wrap svg{transform:rotate(-90deg)}
+.diag-score{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:22px;line-height:1}
+.diag-score small{font-size:10px;color:var(--text2);font-weight:500;margin-top:2px}
+.diag-verdict{flex:1;min-width:200px;font-size:13.5px;line-height:1.65;color:var(--text)}
+.diag-verdict b{color:var(--primary)}
+.diag-sec{margin:16px 0 6px}
+.diag-sec h5{font-size:13px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:6px}
+.gap-item{border:1px solid var(--border);border-left:3px solid #d97706;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px}
+.gap-item .gk{font-weight:700}
+.gap-item .gw{color:var(--text2);font-size:12px;margin-top:2px}
+.gap-item .gf{margin-top:4px;color:#0e7a6d;font-size:12.5px}
+.strength-item{border:1px solid var(--border);border-left:3px solid #059669;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:13px}
+.rw-item{border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12.5px}
+.rw-item .rf{color:#b91c1c;text-decoration:line-through;opacity:.75}
+.rw-item .rt{color:#047857;margin-top:4px}
+.rw-item .arrow{color:var(--text2);margin:2px 0}
+.action-item{display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0}
+.action-item b{color:var(--primary);flex-shrink:0}
+/* ===== 面试题卡片 ===== */
+.qa-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;animation:fadeUp .4s var(--ease) both}
+.qa-card .q{font-weight:700;font-size:14px;line-height:1.5}
+.qa-card .q .qa-tag{font-size:11px;font-weight:600;padding:1px 8px;border-radius:6px;margin-right:8px;vertical-align:1px}
+.qa-card .a{font-size:13px;line-height:1.7;margin-top:8px;color:var(--text)}
+.qa-card .tip{font-size:12px;color:#92400e;background:var(--amber-bg);border-radius:8px;padding:6px 10px;margin-top:8px}
+/* ===== 投递转化洞察 ===== */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.ins-sec h6{font-size:12.5px;font-weight:700;color:var(--text2);margin:0 0 10px;letter-spacing:.3px}
+.ins-row{display:grid;grid-template-columns:60px 1fr 96px 72px;gap:10px;align-items:center;padding:5px 0;font-size:12.5px}
+.ins-row .il{color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ins-bar{height:8px;background:var(--gray-bg);border-radius:99px;overflow:hidden}
+.ins-bar>i{display:block;height:100%;border-radius:99px;background:var(--grad)}
+.ins-pct{font-variant-numeric:tabular-nums;text-align:right;color:var(--text2)}
+.ins-pct b{color:var(--text);font-weight:700}
+.ins-offer{text-align:right;font-variant-numeric:tabular-nums;color:#059669;font-weight:600}
+/* ===== 环形图 ===== */
+.donut-wrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.donut-wrap svg{flex-shrink:0}
+.donut-legend{flex:1;min-width:140px}
+.donut-legend .dl-row{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0}
+.donut-legend .dl-row i{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.donut-legend .dl-row b{margin-left:auto;font-variant-numeric:tabular-nums}
+/* ===== 空状态线条插画 ===== */
+.empty-art{margin:0 auto 14px;width:120px;height:88px;opacity:.85}
+.empty-art path,.empty-art circle,.empty-art rect,.empty-art line{stroke:var(--text2);stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.empty-art .ac{stroke:var(--primary);opacity:.55}
+
 /* ===== 首屏骨架屏（消除飞书冷启动空白闪烁） ===== */
 .boot-skeleton{position:fixed;inset:0 0 0 220px;z-index:40;background:var(--bg);padding:24px 28px;display:flex;flex-direction:column;gap:16px;transition:opacity .45s var(--ease);overflow-y:auto}
 .boot-skeleton.hide{opacity:0;pointer-events:none}
@@ -694,6 +743,10 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,.fld input:focus
         </div>
       </div>
       <div class="panel" style="margin-top:16px">
+        <div class="panel-head">📊 投递转化洞察 <span style="font-size:12px;color:var(--text2);font-weight:400">（按行业 / 公司性质 / 薪资段的进展率与 Offer 率）</span></div>
+        <div class="panel-body" id="insightsBody"></div>
+      </div>
+      <div class="panel" style="margin-top:16px">
         <div class="panel-head">🧑‍🎓 学员投递汇总 <span style="font-size:12px;color:var(--text2);font-weight:400">（按 Offer 数排序，点击学员名查看详情）</span></div>
         <div class="panel-body" id="stuSummary"></div>
       </div>
@@ -743,8 +796,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,.fld input:focus
     <section id="view-jobs" style="display:none">
       <div class="page-head">
         <div><div class="page-title">职位库</div><div class="page-sub">收集与维护可推荐的职位</div></div>
-        <div style="display:flex;gap:10px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn" onclick="openJdParse()">🤖 JD 解析入库</button>
+          <button class="btn" onclick="openInterviewQa()">🎯 面试题生成</button>
           <button class="btn btn-primary" onclick="openJobModal()">＋ 新增职位</button>
         </div>
       </div>
@@ -1377,15 +1431,12 @@ function renderDashboard(){
   }).join('');
   const delivered=counts[1].c, offer=counts[4].c, overall=delivered>0?Math.round(offer/delivered*100):0;
   funnel+=`<div class="funnel-overall">整体投递→Offer 转化率 <b>${overall}%</b>　<span>（${delivered} 投递 → ${offer} Offer）</span></div>`;
-  $('funnelBody').innerHTML=funnel || '<div class="empty">暂无投递数据</div>';
+  $('funnelBody').innerHTML=funnel || `<div class="empty">${emptyArt()}<div>暂无投递数据</div></div>`;
 
   const STU_DIST=['咨询中','辅导中','求职中','已上岸','暂停'];
   const STU_DIST_COLOR={'咨询中':'#60a5fa','辅导中':'#6366f1','求职中':'#d97706','已上岸':'#059669','暂停':'#9ca3af'};
-  const distMax=Math.max(1,...STU_DIST.map(st=>db.students.filter(s=>s.stage===st).length));
-  $('distBody').innerHTML=STU_DIST.map(st=>{
-    const c=db.students.filter(s=>s.stage===st).length;
-    return `<div class="dist-row"><div class="lbl">${st}</div><div class="dist-bar"><i style="width:${Math.round(c/distMax*100)}%;background:${STU_DIST_COLOR[st]}"></i></div><div class="dist-num">${c}</div></div>`;
-  }).join('') + `<div style="margin-top:12px;font-size:12px;color:var(--text2)">共 ${db.students.length} 名学员</div>`;
+  const distItems=STU_DIST.map(st=>({label:st,value:db.students.filter(s=>s.stage===st).length,color:STU_DIST_COLOR[st]}));
+  $('distBody').innerHTML=`<div class="donut-wrap">${donutSVG(distItems,120)}<div class="donut-legend">${distItems.map(x=>`<div class="dl-row"><i style="background:${x.color}"></i>${x.label}<b>${x.value}</b></div>`).join('')}<div style="margin-top:8px;font-size:12px;color:var(--text2)">共 ${db.students.length} 名学员</div></div></div>`;
 
   const recent=[...db.apps].sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||'')).slice(0,8);
   $('activityBody').innerHTML=recent.length?recent.map(a=>{
@@ -1396,6 +1447,72 @@ function renderDashboard(){
   renderStageFunnel();
   renderFollowUp();
   renderStuSummary();
+  renderInsights();
+}
+/* SVG 环形图（学员阶段分布等） */
+function donutSVG(items,size){
+  const total=items.reduce((s,x)=>s+x.value,0);
+  const c=size/2, R=c-12, C=2*Math.PI*R;
+  let acc=0;
+  const segs=total?items.filter(x=>x.value>0).map(x=>{
+    const dash=x.value/total*C;
+    const seg=`<circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="${x.color}" stroke-width="15" stroke-dasharray="${Math.max(dash-2,0.5)} ${C-dash+2}" stroke-dashoffset="${-acc}" stroke-linecap="round"/>`;
+    acc+=dash;
+    return seg;
+  }).join(''):'';
+  const center=total?`<text x="${c}" y="${c+2}" text-anchor="middle" font-size="${Math.round(size*0.19)}" font-weight="700" fill="var(--text)">${total}</text><text x="${c}" y="${c+size*0.16}" text-anchor="middle" font-size="${Math.round(size*0.085)}" fill="var(--text2)">名学员</text>`
+    :`<text x="${c}" y="${c+4}" text-anchor="middle" font-size="11" fill="var(--text2)">暂无数据</text>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><g transform="rotate(-90 ${c} ${c})"><circle cx="${c}" cy="${c}" r="${R}" fill="none" stroke="var(--gray-bg)" stroke-width="15"/>${segs}</g>${center}</svg>`;
+}
+/* 空状态线条插画（文档 + 放大镜） */
+function emptyArt(){
+  return `<svg class="empty-art" viewBox="0 0 120 88" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="60" cy="44" r="38" stroke-dasharray="3 6" opacity=".45"/>
+    <rect x="36" y="20" width="40" height="50" rx="5"/>
+    <line x1="44" y1="32" x2="68" y2="32"/><line x1="44" y1="42" x2="68" y2="42"/><line x1="44" y1="52" x2="60" y2="52"/>
+    <circle class="ac" cx="82" cy="62" r="9"/>
+    <line class="ac" x1="88" y1="68" x2="96" y2="76"/>
+  </svg>`;
+}
+/* 投递转化洞察：按行业 / 公司性质 / 薪资段的进展率与 Offer 率 */
+function renderInsights(){
+  const el=$('insightsBody'); if(!el) return;
+  if(!db.apps.length){ el.innerHTML=`<div class="empty">${emptyArt()}<div>暂无投递数据，投递后这里会展示转化分析</div></div>`; return; }
+  const jobOf=a=>jobById(a.jobId)||(db.jobs.find(j=>j.company===a.company&&j.title===a.jobTitle)||null);
+  const progressed=a=>['笔试','面试','Offer'].includes(a.stage);
+  // 薪资归桶：取区间下限（如 20-35K·15薪 → 20K）
+  const salaryBucket=s=>{
+    const m=String(s||'').match(/(\d+(?:\.\d+)?)/);
+    if(!m) return '';
+    const k=parseFloat(m[1]);
+    if(k<=10) return '≤10K';
+    if(k<=20) return '10-20K';
+    if(k<=30) return '20-30K';
+    return '30K+';
+  };
+  const group=(keyFn)=>{
+    const g={};
+    db.apps.forEach(a=>{
+      const j=jobOf(a);
+      const k=keyFn(a,j);
+      if(!k) return;
+      (g[k]=g[k]||{total:0,prog:0,offer:0});
+      g[k].total++; if(progressed(a)) g[k].prog++; if(a.stage==='Offer') g[k].offer++;
+    });
+    return Object.entries(g).map(([k,v])=>({k,...v,rate:v.total?v.prog/v.total:0}))
+      .sort((a,b)=>b.total-a.total).slice(0,6);
+  };
+  const section=(title,rows)=>{
+    if(!rows.length) return '';
+    const maxT=Math.max(...rows.map(r=>r.total));
+    return `<div class="ins-sec"><h6>${title}</h6>${rows.map(r=>`<div class="ins-row"><span class="il" title="${esc(r.k)}">${esc(r.k)}</span><div class="ins-bar"><i style="width:${Math.round(r.total/maxT*100)}%"></i></div><span class="ins-pct"><b>${Math.round(r.rate*100)}%</b> 进展 · ${r.total}投</span><span class="ins-offer">${r.offer?'Offer×'+r.offer:'—'}</span></div>`).join('')}</div>`;
+  };
+  const byIndustry=group((a,j)=>j&&j.industry?j.industry:'');
+  const byNature=group((a,j)=>j&&j.nature?j.nature:'');
+  const bySalary=group((a,j)=>j?salaryBucket(j.salary):'');
+  const unmatched=db.apps.filter(a=>!jobOf(a)).length;
+  el.innerHTML=`<div class="ins-grid">${section('🏭 按行业',byIndustry)}${section('🏢 按公司性质',byNature)}${section('💰 按薪资段',bySalary)}</div>`
+    +(unmatched?`<div style="margin-top:12px;font-size:12px;color:var(--text2)">另有 ${unmatched} 条投递未关联职位库，未纳入统计</div>`:'');
 }
 function renderStuSummary(){
   const rows=db.students.map(s=>{
@@ -1406,11 +1523,11 @@ function renderStuSummary(){
     '<div class="tbl"><div class="tbl-row tbl-head"><div>学员</div><div>投递</div><div>面试</div><div>Offer</div></div>' +
     rows.map(r=>`<div class="tbl-row" onclick="openDrawer('${r.s.id}')"><div class="tbl-name">${esc(r.s.name)}<span class="tbl-sub">${esc(r.s.target||'')}</span></div><div>${r.total}</div><div>${r.interview}</div><div class="${r.offer?'tbl-offer':''}">${r.offer}</div></div>`).join('') +
     '</div>'
-  ) : '<div class="empty">暂无学员</div>';
+  ) : `<div class="empty">${emptyArt()}<div>暂无学员</div></div>`;
 }
 function renderLogs(){
   const logs=db.logs||[];
-  if(!logs.length){ $('logBody').innerHTML='<div class="empty">暂无操作记录</div>'; return; }
+  if(!logs.length){ $('logBody').innerHTML=`<div class="empty">${emptyArt()}<div>暂无操作记录，新增 / 编辑 / 删除都会记到这里</div></div>`; return; }
   $('logBody').innerHTML='<div class="log-list">'+logs.map(l=>{
     const t=(l.at||'').replace('T',' ').slice(0,19);
     return `<div class="log-item"><span class="log-act log-${l.action}">${esc(l.action)}</span><span class="log-target">${esc(l.target||'')}</span><span class="log-actor">${esc(l.actor||'')}</span><span class="log-time">${esc(t)}</span></div>`;
@@ -1546,7 +1663,7 @@ function renderStudents(){
     if(kw&&![s.name,s.school,s.major,s.target].join(' ').toLowerCase().includes(kw)) return false;
     return true;
   });
-  if(!list.length){ $('studentTable').innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>暂无学员，点击右上角「新增学员」开始</div>'; renderStudentDetail(); return; }
+  if(!list.length){ $('studentTable').innerHTML=`<div class="empty">${emptyArt()}<div>暂无学员，点击右上角「新增学员」开始</div><div class="hint">也可以用「批量导入 CSV」批量录入</div></div>`; renderStudentDetail(); return; }
   if(!selectedStudentId) selectedStudentId=list[0].id;
   if(stuView==='card'){
     $('studentTable').innerHTML=`<div class="stu-cards-narrow">${list.map(s=>{
@@ -1670,7 +1787,9 @@ function openAiResume(stuId){
   const s=stuById(stuId);
   $('aiResumeTitle').textContent='🤖 AI 简历助手'+(s?' · '+s.name:'');
   $('ai_extra').value=''; $('ai_resumeText').value=''; $('ai_jdText').value='';
+  $('diag_resumeText').value=''; $('diag_jdText').value='';
   $('ai_out').innerHTML=''; $('aiOutWrap').style.display='none';
+  $('aiDiagDlBtn').style.display='none';
   aiTab('draft');
   openModalEl('aiResumeModal');
 }
@@ -1678,8 +1797,10 @@ function closeAiResume(){ closeModal('aiResumeModal'); }
 function aiTab(t){
   $('aiTabDraft').classList.toggle('active',t==='draft');
   $('aiTabPolish').classList.toggle('active',t==='polish');
+  $('aiTabDiag').classList.toggle('active',t==='diag');
   $('aiDraftPane').style.display=t==='draft'?'':'none';
   $('aiPolishPane').style.display=t==='polish'?'':'none';
+  $('aiDiagPane').style.display=t==='diag'?'':'none';
 }
 function aiRender(text){
   aiLastText=text;
@@ -1711,6 +1832,126 @@ async function runAiPolish(){
 }
 function aiCopyOut(){
   navigator.clipboard.writeText(aiLastText).then(()=>toast('已复制到剪贴板')).catch(()=>toast('复制失败，请手动选择文本'));
+}
+/* --- 简历诊断（结构化报告 + HTML 下载） --- */
+let aiLastDiag=null;
+function scoreColor(sc){ return sc>=75?'#059669':sc>=50?'#d97706':'#dc2626'; }
+function scoreRingHTML(sc){
+  const R=38, C=2*Math.PI*R, off=C*(1-sc/100), col=scoreColor(sc);
+  return `<div class="diag-score-wrap"><svg width="92" height="92" viewBox="0 0 92 92"><circle cx="46" cy="46" r="${R}" stroke="var(--gray-bg)" stroke-width="9" fill="none"/><circle cx="46" cy="46" r="${R}" stroke="${col}" stroke-width="9" fill="none" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset 1s var(--ease)"/></svg><div class="diag-score" style="color:${col}">${sc}<small>匹配分</small></div></div>`;
+}
+function diagReportHTML(g){
+  return `
+    <div class="diag-head">${scoreRingHTML(g.score)}<div class="diag-verdict"><b>总评：</b>${esc(g.verdict||'')}</div></div>
+    ${g.strengths&&g.strengths.length?`<div class="diag-sec"><h5>💪 亮点</h5>${g.strengths.map(x=>`<div class="strength-item">${esc(x)}</div>`).join('')}</div>`:''}
+    ${g.gaps&&g.gaps.length?`<div class="diag-sec"><h5>⚠️ 缺失关键词 / 能力</h5>${g.gaps.map(x=>`<div class="gap-item"><span class="gk">${esc(x.kw)}</span><div class="gw">${esc(x.why)}</div><div class="gf">✎ ${esc(x.fix)}</div></div>`).join('')}</div>`:''}
+    ${g.rewrites&&g.rewrites.length?`<div class="diag-sec"><h5>✍️ 逐句改写建议</h5>${g.rewrites.map(x=>`<div class="rw-item"><div class="rf">${esc(x.from)}</div><div class="arrow">↓</div><div class="rt">${esc(x.to)}</div></div>`).join('')}</div>`:''}
+    ${g.actions&&g.actions.length?`<div class="diag-sec"><h5>🎯 下一步行动</h5>${g.actions.map((x,i)=>`<div class="action-item"><b>${i+1}.</b><span>${esc(x)}</span></div>`).join('')}</div>`:''}`;
+}
+async function runAiDiagnose(){
+  const btn=$('aiDiagBtn');
+  const resume=$('diag_resumeText').value.trim(), jd=$('diag_jdText').value.trim();
+  if(!resume||!jd){ toast('请同时填写简历内容和目标 JD'); return; }
+  aiBusy(btn,true,'开始诊断');
+  try{
+    const j=await aiFetch({task:'resume-diagnose',resume,jd});
+    const g=j.report||{};
+    aiLastDiag={g,resume,jd,at:new Date().toISOString()};
+    aiLastText=`匹配度：${g.score}分\n\n总评：${g.verdict}\n\n亮点：\n${(g.strengths||[]).map(x=>'- '+x).join('\n')}\n\n缺失：\n${(g.gaps||[]).map(x=>`- ${x.kw}：${x.fix}`).join('\n')}\n\n改写建议：\n${(g.rewrites||[]).map(x=>`- ${x.from}\n  → ${x.to}`).join('\n')}\n\n下一步：\n${(g.actions||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}`;
+    $('ai_out').innerHTML=diagReportHTML(g);
+    $('aiOutWrap').style.display='';
+    $('aiDiagDlBtn').style.display='';
+    $('ai_out').scrollTop=0;
+    toast(`诊断完成：匹配度 ${g.score} 分`);
+  }catch(e){ toast(e.message); }
+  finally{ aiBusy(btn,false,'开始诊断'); }
+}
+function downloadDiagHtml(){
+  if(!aiLastDiag) return;
+  const {g,at}=aiLastDiag;
+  const col=scoreColor(g.score);
+  const html=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>简历诊断报告</title><style>
+    body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:720px;margin:32px auto;padding:0 24px;color:#1e2230;line-height:1.75;background:#f8f9fc}
+    .card{background:#fff;border:1px solid #eceef4;border-radius:16px;padding:26px 28px;margin-bottom:16px;box-shadow:0 2px 10px rgba(20,24,48,.05)}
+    h1{font-size:22px;margin:0 0 4px}h5{font-size:15px;margin:0 0 12px}
+    .meta{color:#6e7689;font-size:12.5px}
+    .score{display:inline-flex;align-items:baseline;gap:6px}.score b{font-size:44px;color:${col}}
+    .gk{font-weight:700}.gf{color:#0e7a6d;margin-top:4px;font-size:13px}
+    .gap-item{border-left:3px solid #d97706;background:#fffbeb;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:14px}
+    .strength-item{border-left:3px solid #059669;background:#ecfdf5;border-radius:8px;padding:10px 14px;margin-bottom:8px;font-size:14px}
+    .rw{background:#f8f9fc;border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13.5px}.rw .rf{color:#b91c1c;text-decoration:line-through}.rw .rt{color:#047857;margin-top:6px}
+    .act{display:flex;gap:8px;padding:5px 0;font-size:14px}.act b{color:#4f46e5}
+  </style></head><body>
+    <div class="card"><h1>📋 简历诊断报告</h1><div class="meta">生成时间：${esc(at.replace('T',' ').slice(0,16))} · AI 辅助生成，仅供辅导参考</div></div>
+    <div class="card"><div class="score"><b>${g.score}</b><span class="meta">/ 100 匹配度</span></div><p style="margin:10px 0 0;font-size:15px"><b>总评：</b>${esc(g.verdict||'')}</p></div>
+    ${(g.strengths||[]).length?`<div class="card"><h5>💪 亮点</h5>${g.strengths.map(x=>`<div class="strength-item">${esc(x)}</div>`).join('')}</div>`:''}
+    ${(g.gaps||[]).length?`<div class="card"><h5>⚠️ 缺失关键词 / 能力</h5>${g.gaps.map(x=>`<div class="gap-item"><span class="gk">${esc(x.kw)}</span><div style="color:#6e7689;font-size:13px">${esc(x.why)}</div><div class="gf">✎ ${esc(x.fix)}</div></div>`).join('')}</div>`:''}
+    ${(g.rewrites||[]).length?`<div class="card"><h5>✍️ 逐句改写建议</h5>${g.rewrites.map(x=>`<div class="rw"><div class="rf">${esc(x.from)}</div><div>↓</div><div class="rt">${esc(x.to)}</div></div>`).join('')}</div>`:''}
+    ${(g.actions||[]).length?`<div class="card"><h5>🎯 下一步行动</h5>${g.actions.map((x,i)=>`<div class="act"><b>${i+1}.</b><span>${esc(x)}</span></div>`).join('')}</div>`:''}
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`简历诊断报告_${today()}.html`; a.click();
+  toast('HTML 报告已下载');
+}
+/* --- 面试题生成 --- */
+let qaLastList=[], qaLastTitle='';
+function openInterviewQa(){
+  const sel=$('qa_jobPick');
+  sel.innerHTML='<option value="">— 手动粘贴 JD —</option>'+db.jobs.map(j=>`<option value="${j.id}">${esc(j.company)}｜${esc(j.title)}</option>`).join('');
+  $('qa_jdText').value=''; $('qa_out').innerHTML=''; $('qaOutWrap').style.display='none';
+  const btn=$('qaGenBtn'); btn.disabled=false; btn.textContent='生成面试题';
+  openModalEl('interviewQaModal');
+}
+function closeInterviewQa(){ closeModal('interviewQaModal'); }
+function qaPrefill(){
+  const j=jobById($('qa_jobPick').value);
+  if(!j){ return; }
+  const parts=[j.company+' · '+j.title];
+  if(j.city) parts.push('城市：'+j.city);
+  if(j.jobType) parts.push('类型：'+j.jobType);
+  if(j.salary) parts.push('薪资：'+j.salary);
+  if(j.nature) parts.push('公司性质：'+j.nature);
+  if(j.edu&&j.edu!=='不限') parts.push('学历：'+j.edu);
+  if(j.majors) parts.push('专业要求：'+j.majors);
+  if(j.notes) parts.push('职位要求：'+j.notes);
+  if(j.link) parts.push('JD链接：'+j.link);
+  $('qa_jdText').value=parts.join('\n');
+}
+const QA_TAG={'专业技能':'background:#eef2ff;color:#4f46e5','项目深挖':'background:#f5f3ff;color:#7c3aed','行为面':'background:#fffbeb;color:#b45309','HR面':'background:#ecfdf5;color:#047857','反问环节':'background:#fef2f2;color:#dc2626'};
+async function runInterviewQa(){
+  const btn=$('qaGenBtn');
+  const jd=$('qa_jdText').value.trim();
+  if(!jd){ toast('请粘贴 JD 或从职位库选择'); return; }
+  aiBusy(btn,true,'生成面试题');
+  try{
+    const j=await aiFetch({task:'interview-qa',jd});
+    qaLastList=j.list||[];
+    const pk=$('qa_jobPick').value;
+    const jb=pk?jobById(pk):null;
+    qaLastTitle=jb?jb.company+'｜'+jb.title+' 面试准备':(jd.split('\n')[0]||'').slice(0,30)+' 面试准备';
+    $('qa_out').innerHTML=qaLastList.map((x,i)=>`<div class="qa-card" style="animation-delay:${i*40}ms"><div class="q"><span class="qa-tag" style="${QA_TAG[x.type]||QA_TAG['专业技能']}">${esc(x.type)}</span>${esc(x.q)}</div><div class="a">${esc(x.a)}</div>${x.tip?`<div class="tip">💡 ${esc(x.tip)}</div>`:''}</div>`).join('');
+    $('qaOutWrap').style.display='';
+    toast(`已生成 ${qaLastList.length} 道面试题`);
+  }catch(e){ toast(e.message); }
+  finally{ aiBusy(btn,false,'生成面试题'); }
+}
+function downloadQaHtml(){
+  if(!qaLastList.length){ toast('请先生成面试题'); return; }
+  const html=`<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(qaLastTitle)}</title><style>
+    body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;max-width:720px;margin:32px auto;padding:0 24px;color:#1e2230;line-height:1.8;background:#f8f9fc}
+    .card{background:#fff;border:1px solid #eceef4;border-radius:14px;padding:20px 24px;margin-bottom:14px;box-shadow:0 2px 8px rgba(20,24,48,.05)}
+    h1{font-size:21px;margin:0 0 4px}.meta{color:#6e7689;font-size:12.5px}
+    .q{font-weight:700;font-size:15px}.tag{font-size:11px;font-weight:600;padding:1px 8px;border-radius:6px;margin-right:8px;vertical-align:1px}
+    .a{font-size:13.5px;margin-top:8px}.tip{font-size:12.5px;color:#92400e;background:#fffbeb;border-radius:8px;padding:6px 10px;margin-top:8px}
+  </style></head><body>
+    <div class="card"><h1>🎯 ${esc(qaLastTitle)}</h1><div class="meta">共 ${qaLastList.length} 题 · 生成时间 ${today()} · AI 辅助生成，仅供辅导参考</div></div>
+    ${qaLastList.map((x,i)=>`<div class="card"><div class="q"><span class="tag" style="${QA_TAG[x.type]||QA_TAG['专业技能']}">${esc(x.type)}</span>${i+1}. ${esc(x.q)}</div><div class="a">${esc(x.a)}</div>${x.tip?`<div class="tip">💡 ${esc(x.tip)}</div>`:''}</div>`).join('')}
+  </body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`面试题_${today()}.html`; a.click();
+  toast('面试题 HTML 已下载');
 }
 function aiPrintOut(){
   if(!aiLastText) return;
@@ -1989,7 +2230,7 @@ function openDrawer(id){
 function renderStudentDetail(){
   const col=document.getElementById('stuDetail'); if(!col) return;
   const s=selectedStudentId?stuById(selectedStudentId):null;
-  if(!s){ col.innerHTML='<div class="empty"><div class="big">🧑‍🎓</div>从左侧选择一位学员查看详情</div>'; return; }
+  if(!s){ col.innerHTML=`<div class="empty">${emptyArt()}<div>从左侧选择一位学员查看详情</div></div>`; return; }
   const apps=appsOfStudent(s);
   const active=apps.filter(a=>a.stage==='笔试'||a.stage==='面试').length;
   col.innerHTML=`<div class="stu-detail-card">
@@ -2083,7 +2324,7 @@ function renderJobs(){
     if(kw&&![j.company,j.title,j.city,j.jobType,j.industry,j.nature,j.majors].join(' ').toLowerCase().includes(kw)) return false;
     return true;
   });
-  if(!list.length){ $('jobTable').innerHTML='<div class="empty"><div class="big">💼</div>暂无职位，点击右上角「新增职位」开始</div>'; return; }
+  if(!list.length){ $('jobTable').innerHTML=`<div class="empty">${emptyArt()}<div>暂无职位，点击右上角「新增职位」或「JD 解析入库」开始</div></div>`; return; }
   $('jobTable').innerHTML=`<table><thead><tr>
     <th>职位 / 公司</th><th>类型</th><th>城市</th><th>薪资</th><th>渠道</th><th>状态</th><th>投递数</th><th>操作</th>
   </tr></thead><tbody class="stagger">${list.map(j=>{
@@ -2538,6 +2779,7 @@ init();
       <div class="ai-tabs">
         <button class="ai-tab active" id="aiTabDraft" onclick="aiTab('draft')">生成初稿</button>
         <button class="ai-tab" id="aiTabPolish" onclick="aiTab('polish')">按 JD 优化</button>
+        <button class="ai-tab" id="aiTabDiag" onclick="aiTab('diag')">简历诊断</button>
       </div>
       <div id="aiDraftPane">
         <div class="fld full"><label>补充说明（实习/项目经历、技能、获奖等，选填）</label><textarea id="ai_extra" rows="5" placeholder="例：2025.06-2025.09 在 XX 公司实习，负责…；熟悉 Python/SQL；获 XX 奖学金"></textarea></div>
@@ -2548,10 +2790,16 @@ init();
         <div class="fld full" style="margin-top:12px"><label>目标职位 JD（粘贴文本）</label><textarea id="ai_jdText" rows="6" placeholder="粘贴目标岗位的招聘 JD 原文"></textarea></div>
         <button class="btn btn-primary" id="aiPolishBtn" onclick="runAiPolish()">开始优化</button>
       </div>
+      <div id="aiDiagPane" style="display:none">
+        <div class="ai-note" style="margin-bottom:10px">诊断会输出匹配度评分、缺失关键词、逐句改写建议，并可下载 HTML 报告发给学员。</div>
+        <div class="fld full"><label>学员简历内容（粘贴文本）</label><textarea id="diag_resumeText" rows="6" placeholder="粘贴学员简历的文本内容"></textarea></div>
+        <div class="fld full" style="margin-top:12px"><label>目标职位 JD（粘贴文本）</label><textarea id="diag_jdText" rows="6" placeholder="粘贴目标岗位的招聘 JD 原文"></textarea></div>
+        <button class="btn btn-primary" id="aiDiagBtn" onclick="runAiDiagnose()" style="margin-top:12px">开始诊断</button>
+      </div>
       <div id="aiOutWrap" style="display:none;margin-top:16px">
         <div class="ai-out-head">
           <span class="ai-out-title">AI 结果</span>
-          <span class="ai-out-actions"><button class="btn btn-sm" onclick="aiCopyOut()">复制全文</button><button class="btn btn-sm" onclick="aiPrintOut()">打印 / 存 PDF</button></span>
+          <span class="ai-out-actions"><button class="btn btn-sm" onclick="aiCopyOut()">复制全文</button><button class="btn btn-sm" onclick="aiPrintOut()">打印 / 存 PDF</button><button class="btn btn-sm" id="aiDiagDlBtn" style="display:none" onclick="downloadDiagHtml()">下载 HTML 报告</button></span>
         </div>
         <div class="ai-out" id="ai_out"></div>
       </div>
@@ -2588,6 +2836,28 @@ init();
       <button class="btn" onclick="closeJdParse()">取消</button>
       <button class="btn btn-primary" id="jdParseBtn" onclick="runJdParse()">解析</button>
       <button class="btn btn-primary" id="jdSaveBtn" style="display:none" onclick="confirmJdSave()">确认入库</button>
+    </div>
+  </div>
+</div>
+<!-- 面试题生成弹窗 -->
+<div class="modal-mask" id="interviewQaModal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-head"><h3>🎯 AI 面试题生成</h3><button class="modal-close" onclick="closeInterviewQa()">×</button></div>
+    <div class="modal-body">
+      <div class="ai-note" style="margin-bottom:10px">粘贴目标岗位 JD，AI 生成 10 道高频面试题 + 参考回答 + 加分提示，可下载 HTML 作为辅导备课材料。</div>
+      <div class="fld" style="margin-bottom:10px">
+        <label>从职位库带出（选填，自动填入 JD）</label>
+        <select id="qa_jobPick" onchange="qaPrefill()" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:#fff"><option value="">— 手动粘贴 JD —</option></select>
+      </div>
+      <div class="fld full"><label>JD / 职位描述 *</label><textarea id="qa_jdText" rows="7" placeholder="粘贴招聘 JD 原文，或从上方选择职位自动带出"></textarea></div>
+      <button class="btn btn-primary" id="qaGenBtn" onclick="runInterviewQa()" style="margin-top:12px">生成面试题</button>
+      <div id="qaOutWrap" style="display:none;margin-top:16px">
+        <div class="ai-out-head">
+          <span class="ai-out-title">面试题清单</span>
+          <span class="ai-out-actions"><button class="btn btn-sm" onclick="downloadQaHtml()">下载 HTML</button></span>
+        </div>
+        <div id="qa_out"></div>
+      </div>
     </div>
   </div>
 </div>

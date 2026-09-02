@@ -202,6 +202,21 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
 .stu-pref-select{border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);background:var(--card);cursor:pointer;outline:none}
 .stu-pref-select:focus{border-color:var(--primary)}
 
+/* ===== 求职进度条 ===== */
+.prog-steps{display:flex;align-items:flex-start;justify-content:space-between;margin:4px 0 20px}
+.prog-step{display:flex;flex-direction:column;align-items:center;gap:7px;flex:1;min-width:0}
+.prog-dot{width:40px;height:40px;border-radius:50%;background:var(--gray-bg);color:var(--text2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;transition:all .35s var(--ease);border:2px solid transparent}
+.prog-step.reached .prog-dot{color:#fff}
+.prog-step.current .prog-dot{transform:scale(1.12)}
+.prog-lbl{font-size:12px;color:var(--text2);font-weight:500}
+.prog-step.current .prog-lbl{font-weight:700}
+.prog-sep{color:var(--border);font-size:20px;line-height:40px;padding:0 2px;flex:none}
+.prog-stats{display:flex;gap:10px;margin-top:4px}
+.prog-stats .ps{flex:1;background:var(--gray-bg);border-radius:12px;padding:12px 8px;text-align:center}
+.prog-stats b{display:block;font-size:20px;font-weight:800;line-height:1.2}
+.prog-stats span{font-size:12px;color:var(--text2)}
+@media(max-width:640px){.prog-dot{width:34px;height:34px;font-size:12.5px}.prog-sep{font-size:16px;line-height:34px}.prog-lbl{font-size:11px}}
+
 /* ===== 移动端适配 ===== */
 @media(max-width:640px){
   body{font-size:14px;-webkit-text-size-adjust:100%}
@@ -252,6 +267,11 @@ body::before{height:3px;background:var(--grad);box-shadow:0 1px 8px rgba(99,102,
         <button class="btn btn-sm" id="themeBtn" onclick="toggleTheme()">🌙 深色</button>
         <button class="btn btn-sm" onclick="logout()">🚪 退出</button>
       </div>
+    </div>
+
+    <div class="card" style="padding:22px;margin-bottom:18px">
+      <div class="sec-title">我的求职进展</div>
+      <div id="progressBox"></div>
     </div>
 
     <div class="card" style="padding:22px;margin-bottom:18px">
@@ -435,6 +455,47 @@ function renderMe() {
     </div>`;
   $('resumeBox').innerHTML = resumeHTML(s);
   $('appBox').innerHTML = appsHTML(me.apps || []);
+  $('progressBox').innerHTML = progressHTML(me.apps || []);
+}
+/* 求职进度条：阶段流水线 + 关键数据 */
+function progressHTML(apps) {
+  const stages = ['待投递', '已投递', '笔试', '面试', 'Offer'];
+  const colorMap = { '待投递': '#9ca3af', '已投递': '#2563eb', '笔试': '#7c3aed', '面试': '#d97706', 'Offer': '#059669' };
+  const counts = {}; apps.forEach(a => counts[a.stage] = (counts[a.stage] || 0) + 1);
+  let furthest = -1;
+  apps.forEach(a => { const i = stages.indexOf(a.stage); if (i > furthest) furthest = i; });
+  const active = (counts['笔试'] || 0) + (counts['面试'] || 0);
+  const offers = counts['Offer'] || 0, fails = counts['未通过'] || 0;
+  if (!apps.length) {
+    return `<div style="text-align:center;padding:14px 0">
+      <svg width="110" height="76" viewBox="0 0 120 88" style="opacity:.75">
+        <circle cx="60" cy="44" r="38" fill="none" stroke="var(--text2)" stroke-width="1.5" stroke-dasharray="3 6" opacity=".5"/>
+        <rect x="36" y="20" width="40" height="50" rx="5" fill="none" stroke="var(--text2)" stroke-width="1.6"/>
+        <line x1="44" y1="32" x2="68" y2="32" stroke="var(--text2)" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="44" y1="42" x2="68" y2="42" stroke="var(--text2)" stroke-width="1.6" stroke-linecap="round"/>
+        <line x1="44" y1="52" x2="60" y2="52" stroke="var(--text2)" stroke-width="1.6" stroke-linecap="round"/>
+        <circle cx="82" cy="62" r="9" fill="none" stroke="var(--primary)" stroke-width="1.6" opacity=".7"/>
+        <line x1="88" y1="68" x2="96" y2="76" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+      </svg>
+      <div style="color:var(--text2);font-size:13px;margin-top:10px">还没有投递记录——先去「AI 助手」让导师推荐职位，或点下方「+ 新增投递」记录第一个投递吧</div>
+    </div>`;
+  }
+  const steps = stages.map((st, i) => {
+    const c = counts[st] || 0;
+    const reached = furthest >= i, cur = i === furthest;
+    return `<div class="prog-step${reached ? ' reached' : ''}${cur ? ' current' : ''}">
+      <div class="prog-dot" style="${reached ? `background:${colorMap[st]};color:#fff;box-shadow:0 4px 12px ${colorMap[st]}44` : ''}">${c}</div>
+      <div class="prog-lbl" style="${cur ? `color:${colorMap[st]}` : ''}">${st}</div>
+    </div>`;
+  }).join('<span class="prog-sep">›</span>');
+  return `
+    <div class="prog-steps">${steps}</div>
+    <div class="prog-stats">
+      <div class="ps"><b>${apps.length}</b><span>总投递</span></div>
+      <div class="ps"><b style="color:#7c3aed">${active}</b><span>进行中</span></div>
+      <div class="ps"><b style="color:#059669">${offers}</b><span>Offer</span></div>
+      <div class="ps"><b style="color:#dc2626">${fails}</b><span>未通过</span></div>
+    </div>`;
 }
 function resumeHTML(s) {
   let h = '';
