@@ -579,10 +579,14 @@ async function llmChat(messages, opts = {}) {
 // 从模型输出中稳健提取 JSON（容忍 markdown 代码块/前后缀文本）
 function extractJSON(text) {
   let s = String(text || '').trim().replace(/```json|```/g, '').trim();
-  const a = s.indexOf('['), b = s.lastIndexOf(']');
-  const c = s.indexOf('{'), d = s.lastIndexOf('}');
-  if (a >= 0 && b > a) s = s.slice(a, b + 1);
-  else if (c >= 0 && d > c) s = s.slice(c, d + 1);
+  // 按最先出现的定界符判断外层结构：先 [ 则是数组，先 { 则是对象（内嵌数组不受影响）
+  const firstArr = s.indexOf('['), firstObj = s.indexOf('{');
+  let start, endCh;
+  if (firstArr >= 0 && (firstObj < 0 || firstArr < firstObj)) { start = firstArr; endCh = ']'; }
+  else if (firstObj >= 0) { start = firstObj; endCh = '}'; }
+  else return JSON.parse(s);
+  const end = s.lastIndexOf(endCh);
+  if (end > start) s = s.slice(start, end + 1);
   return JSON.parse(s);
 }
 
